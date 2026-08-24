@@ -24,6 +24,7 @@ import GovernmentSchemesPage from "./pages/government-schemes/page.tsx";
 import FarmingTipsPage from "./pages/farming-tips/page.tsx";
 import HelpCenterPage from "./pages/help-center/page.tsx";
 import AdminPage from "./pages/admin/page.tsx";
+import NotificationsPage from "./pages/notifications/page.tsx";
 
 function AppInner() {
   useServiceWorker();
@@ -53,6 +54,7 @@ function AppInner() {
           <Route path="/farming-tips" element={<FarmingTipsPage />} />
           <Route path="/help-center" element={<HelpCenterPage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

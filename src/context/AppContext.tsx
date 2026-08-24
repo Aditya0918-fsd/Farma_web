@@ -93,6 +93,8 @@ export interface UserNotification {
   time: string;
   read: boolean;
   type?: "info" | "success" | "warning";
+  link?: string;
+  category?: "crops" | "labour" | "expert" | "wallet" | "kcc" | "account" | "mandi";
 }
 
 interface AppContextType {
@@ -152,7 +154,9 @@ interface AppContextType {
   notifications: UserNotification[];
   markNotificationAsRead: (id: string) => void;
   markAllNotificationsAsRead: () => void;
-  addNotification: (title: string, message: string, type?: "info" | "success" | "warning") => void;
+  deleteNotification: (id: string) => void;
+  clearAllNotifications: () => void;
+  addNotification: (title: string, message: string, type?: "info" | "success" | "warning", link?: string, category?: UserNotification["category"]) => void;
 
   // KCC Applications for Admin
   kccApplications: KccApplication[];
@@ -294,6 +298,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setKccApplications((prev) => [newApp, ...prev]);
+    addNotification(
+      "KCC Application Submitted 💳",
+      `Your Kisan Credit Card application has been submitted. We will review it shortly.`,
+      "info",
+      "/dashboard",
+      "kcc"
+    );
   };
 
   const toggleKccDemoStatus = () => {
@@ -345,18 +356,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setCropListings((prev) => [newListing, ...prev]);
+    addNotification(
+      "Crop Listing Submitted 🌾",
+      `Your listing for "${listing.cropName}" (${listing.weight}) has been submitted and is pending review.`,
+      "info",
+      "/sell-crops",
+      "crops"
+    );
   };
 
   const approveCropListing = (id: string) => {
+    const listing = cropListings.find(c => c.id === id);
     setCropListings((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: "approved" } : item))
     );
+    if (listing) {
+      addNotification(
+        "Crop Listing Approved ✅",
+        `Your crop listing "${listing.cropName}" has been approved and is now live on the marketplace.`,
+        "success",
+        "/agri-market",
+        "crops"
+      );
+    }
   };
 
   const rejectCropListing = (id: string) => {
+    const listing = cropListings.find(c => c.id === id);
     setCropListings((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: "rejected" } : item))
     );
+    if (listing) {
+      addNotification(
+        "Crop Listing Rejected ❌",
+        `Your listing "${listing.cropName}" was not approved. Please check and resubmit.`,
+        "warning",
+        "/sell-crops",
+        "crops"
+      );
+    }
   };
 
   // Labour Booking & Types State
@@ -395,6 +433,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setLabourBookings((prev) => [newBooking, ...prev]);
+    addNotification(
+      "Labour Booking Request Sent 👷",
+      `Your request for ${booking.count} ${booking.labourType}(s) starting ${booking.startDate} has been submitted.`,
+      "info",
+      "/labour-booking",
+      "labour"
+    );
   };
 
   const assignLaboursToBooking = (
@@ -408,6 +453,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? { ...item, status: "assigned", assignedLabours: assigned, adminNotes: notes }
           : item
       )
+    );
+    addNotification(
+      "Labour Assigned to You! ✅",
+      `${assigned.length} labourer(s) have been assigned to your booking. Check your booking page for details.`,
+      "success",
+      "/labour-booking",
+      "labour"
     );
   };
 
@@ -429,6 +481,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setExpertAdviceQueries((prev) => [newQuery, ...prev]);
+    addNotification(
+      "Expert Advice Query Submitted 🌿",
+      `Your query about "${query.cropName}" has been received. An expert will contact you soon.`,
+      "info",
+      "/expert-advice",
+      "expert"
+    );
   };
 
   const updateExpertQueryStatus = (
@@ -439,6 +498,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setExpertAdviceQueries((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status, adminReply: reply } : item))
     );
+    if (status === "resolved" && reply) {
+      addNotification(
+        "Expert Advice Received! 🎓",
+        `Your crop query has been resolved by our expert. Tap to view the reply.`,
+        "success",
+        "/expert-advice",
+        "expert"
+      );
+    } else if (status === "contacted") {
+      addNotification(
+        "Expert Will Contact You 📞",
+        `An agricultural expert will call you shortly regarding your crop query.`,
+        "info",
+        "/expert-advice",
+        "expert"
+      );
+    }
   };
 
   // Mandi Rates State
@@ -480,27 +556,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : [
       {
         id: "n-1",
-        title: "Account Activated 🎉",
-        message: "Welcome to Krivexa! Your profile is active.",
+        title: "Welcome to Krivexa! 🎉",
+        message: "Your account is active. Explore selling crops, booking labour, and more.",
         time: "Just now",
         read: false,
         type: "success",
+        link: "/",
+        category: "account",
       },
       {
         id: "n-2",
         title: "Mandi Prices Updated 🌾",
-        message: "New daily prices for Wheat & Paddy in Bihar mandis.",
+        message: "New daily prices for Wheat & Paddy in Bihar mandis. Check latest rates.",
         time: "10 mins ago",
         read: false,
         type: "info",
+        link: "/mandi-bhav",
+        category: "mandi",
       },
       {
         id: "n-3",
-        title: "Kisan Credit Card (KCC) Ready 💳",
-        message: "Apply for low-interest KCC loan up to ₹3,00,000.",
+        title: "Apply for Kisan Credit Card 💳",
+        message: "Get low-interest KCC loan up to ₹3,00,000 for farming expenses.",
         time: "1 hour ago",
         read: false,
         type: "info",
+        link: "/dashboard",
+        category: "kcc",
       },
     ];
   });
@@ -525,9 +607,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setUser(newUser);
     addNotification(
-      "Welcome Back! 👋",
-      `Logged in successfully as ${newUser.name} (${newUser.role === "farmer" ? "Farmer" : "Dealer"}).`,
-      "success"
+      "Login Successful 👋",
+      `Welcome back, ${newUser.name}! You are logged in as ${newUser.role === "farmer" ? "Farmer" : "Dealer"}.`,
+      "success",
+      "/",
+      "account"
     );
   };
 
@@ -536,14 +620,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem("krivexa_user_profile");
   };
 
-  const addNotification = (title: string, message: string, type: "info" | "success" | "warning" = "info") => {
+  const addNotification = (title: string, message: string, type: "info" | "success" | "warning" = "info", link?: string, category?: UserNotification["category"]) => {
     const newNotif: UserNotification = {
       id: `notif-${Date.now()}`,
       title,
       message,
-      time: "Just now",
+      time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
       read: false,
       type,
+      link,
+      category,
     };
     setNotifications((prev) => [newNotif, ...prev]);
   };
@@ -556,6 +642,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const markAllNotificationsAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const deleteNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
   };
 
   const kccDetails = kccApplications.length > 0 ? kccApplications[0] : null;
@@ -611,6 +705,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notifications,
         markNotificationAsRead,
         markAllNotificationsAsRead,
+        deleteNotification,
+        clearAllNotifications,
         addNotification,
 
         kccApplications,

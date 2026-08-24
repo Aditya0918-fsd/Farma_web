@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, ChevronDown, Globe, LogIn, CreditCard, Bell, User, LogOut, CheckCheck, MapPin, Store, Wallet, Sprout } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
@@ -15,6 +15,7 @@ export default function Navbar() {
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const location = useLocation();
+  const navigate = useNavigate();
   const { 
     language, 
     setLanguage, 
@@ -23,7 +24,9 @@ export default function Navbar() {
     user, 
     logoutUser, 
     notifications, 
-    markAllNotificationsAsRead 
+    markAllNotificationsAsRead,
+    markNotificationAsRead,
+    deleteNotification,
   } = useApp();
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -190,37 +193,70 @@ export default function Navbar() {
                   </button>
 
                   {showNotifMenu && (
-                    <div className="absolute right-0 top-full mt-2 w-80 bg-[#111] border border-white/10 rounded-2xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-150">
-                      <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                    <div className="absolute right-0 top-full mt-2 w-80 bg-[#111] border border-white/10 rounded-2xl shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      {/* Header */}
+                      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-white/10">
                         <div className="font-bold text-sm text-white flex items-center gap-2">
                           <Bell className="h-4 w-4 text-primary" /> Notifications
+                          {unreadCount > 0 && (
+                            <span className="bg-primary text-black text-[10px] font-bold px-1.5 rounded-full">{unreadCount}</span>
+                          )}
                         </div>
                         {unreadCount > 0 && (
                           <button
                             onClick={markAllNotificationsAsRead}
                             className="text-[11px] text-primary hover:underline flex items-center gap-1 cursor-pointer"
                           >
-                            <CheckCheck className="h-3 w-3" /> Mark read
+                            <CheckCheck className="h-3 w-3" /> Mark all read
                           </button>
                         )}
                       </div>
 
-                      <div className="space-y-2 mt-3 max-h-64 overflow-y-auto pr-1">
-                        {notifications.map((n) => (
-                          <div
-                            key={n.id}
-                            className={`p-2.5 rounded-xl border text-left transition-colors ${
-                              n.read ? "bg-white/5 border-white/5 opacity-70" : "bg-primary/5 border-primary/20"
-                            }`}
-                          >
-                            <div className="flex justify-between items-start mb-1">
-                              <span className="text-xs font-bold text-white">{n.title}</span>
-                              <span className="text-[10px] text-gray-500">{n.time}</span>
+                      {/* Notification items */}
+                      <div className="max-h-72 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="py-8 text-center text-gray-500 text-xs">No notifications yet.</div>
+                        ) : (
+                          notifications.slice(0, 6).map((n) => (
+                            <div
+                              key={n.id}
+                              className={`group flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-white/5 border-b border-white/5 last:border-0 ${!n.read ? "bg-primary/5" : ""}`}
+                              onClick={() => {
+                                markNotificationAsRead(n.id);
+                                setShowNotifMenu(false);
+                                navigate(n.link || "/notifications");
+                              }}
+                            >
+                              <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${!n.read ? "bg-primary" : "bg-gray-600"}`} />
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-xs font-semibold leading-snug ${n.read ? "text-gray-300" : "text-white"}`}>{n.title}</p>
+                                <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
+                                <p className="text-[10px] text-gray-600 mt-1">{n.time}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
+                                className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 cursor-pointer transition-all p-0.5 rounded shrink-0"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
                             </div>
-                            <p className="text-[11px] text-gray-300 leading-snug">{n.message}</p>
-                          </div>
-                        ))}
+                          ))
+                        )}
                       </div>
+
+                      {/* Footer link */}
+                      {notifications.length > 0 && (
+                        <div className="px-4 py-3 border-t border-white/10">
+                          <Link
+                            to="/notifications"
+                            onClick={() => setShowNotifMenu(false)}
+                            className="text-xs text-primary hover:underline font-semibold flex items-center justify-center gap-1"
+                          >
+                            View All Notifications →
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
