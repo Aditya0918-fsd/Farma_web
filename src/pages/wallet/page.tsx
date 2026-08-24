@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
 import { toast } from "sonner";
+import { useApp } from "@/context/AppContext.tsx";
 
 const TRANSACTIONS = [
   { title: "Pesticides Purchase", type: "debit", amount: 850, date: "12 May 2024", category: "Purchase", id: "#TXN001" },
@@ -19,6 +20,7 @@ const TRANSACTIONS = [
 ];
 
 export default function WalletPage() {
+  const { t } = useApp();
   const [showBalance, setShowBalance] = useState(true);
   const [addAmount, setAddAmount] = useState("");
 
@@ -35,9 +37,9 @@ export default function WalletPage() {
         <div className="absolute inset-0 bg-linear-to-r from-[#0a0a0a] flex items-center px-6">
           <div className="max-w-7xl mx-auto w-full">
             <h1 className="text-3xl font-black" style={{ fontFamily: "Rajdhani, sans-serif" }}>
-              <span className="text-primary">Krivexa</span> Wallet
+              <span className="text-primary">{t.wallet.title.split(" ")[0]}</span> {t.wallet.title.split(" ").slice(1).join(" ")}
             </h1>
-            <p className="text-gray-400 text-sm">Secure digital payments for all farming transactions</p>
+            <p className="text-gray-400 text-sm">{t.wallet.subtitle}</p>
           </div>
         </div>
       </div>
@@ -61,7 +63,7 @@ export default function WalletPage() {
               </div>
               <div className="flex items-center gap-1 text-xs text-gray-400">
                 <Shield className="h-3 w-3 text-primary" />
-                Protected & Secured
+                {t.wallet.secured}
               </div>
             </div>
 
@@ -70,18 +72,18 @@ export default function WalletPage() {
               <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 text-center">
                 <ArrowUpRight className="h-5 w-5 text-primary mx-auto mb-1" />
                 <div className="text-lg font-black text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>₹{totalIn.toLocaleString()}</div>
-                <div className="text-xs text-gray-400">Total In</div>
+                <div className="text-xs text-gray-400">{t.wallet.totalIn}</div>
               </div>
               <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
                 <ArrowDownRight className="h-5 w-5 text-red-400 mx-auto mb-1" />
                 <div className="text-lg font-black text-red-400" style={{ fontFamily: "Rajdhani, sans-serif" }}>₹{totalOut.toLocaleString()}</div>
-                <div className="text-xs text-gray-400">Total Out</div>
+                <div className="text-xs text-gray-400">{t.wallet.totalOut}</div>
               </div>
             </div>
 
             {/* Add Money */}
             <div className="bg-[#111] border border-white/10 rounded-2xl p-5">
-              <h3 className="font-semibold mb-3">Add Money</h3>
+              <h3 className="font-semibold mb-3">{t.wallet.addMoney}</h3>
               <div className="flex gap-2 mb-3 flex-wrap">
                 {[500, 1000, 2000, 5000].map((amt) => (
                   <button key={amt} onClick={() => setAddAmount(String(amt))} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${addAmount === String(amt) ? "bg-primary text-black" : "bg-white/5 border border-white/10 text-gray-300"}`}>
@@ -92,13 +94,13 @@ export default function WalletPage() {
               <div className="flex gap-2">
                 <Input
                   type="number"
-                  placeholder="Enter amount"
+                  placeholder={t.wallet.enterAmount}
                   value={addAmount}
                   onChange={(e) => setAddAmount(e.target.value)}
                   className="bg-white/5 border-white/10 text-white"
                 />
                 <Button onClick={() => { if (addAmount) { toast.success(`₹${addAmount} added to wallet!`); setAddAmount(""); } }} className="bg-primary text-black font-semibold shrink-0">
-                  <Plus className="h-4 w-4 mr-1" /> Add
+                  <Plus className="h-4 w-4 mr-1" /> {t.wallet.add}
                 </Button>
               </div>
             </div>
@@ -107,9 +109,9 @@ export default function WalletPage() {
           {/* Transactions */}
           <div className="lg:col-span-2 bg-[#111] border border-white/10 rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-white/10 flex items-center justify-between">
-              <h3 className="font-bold">Transaction History</h3>
+              <h3 className="font-bold">{t.wallet.txHistory}</h3>
               <button className="text-xs text-primary hover:underline flex items-center gap-1 cursor-pointer">
-                View All <ArrowRight className="h-3 w-3" />
+                {t.wallet.viewAll} <ArrowRight className="h-3 w-3" />
               </button>
             </div>
             <div className="divide-y divide-white/5">

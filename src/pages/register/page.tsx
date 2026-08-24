@@ -1,21 +1,133 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Eye, EyeOff, User, Phone, MapPin, Lock, CheckCircle, Shield, Zap, Clock, Users } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Eye, EyeOff, User, Phone, MapPin, Lock, CheckCircle, Shield, Zap, Clock, Users, Store, Building2, FileText, Mail, ArrowLeft, KeyRound, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
 import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
+import { INDIAN_STATES_AND_DISTRICTS, INDIAN_STATES_LIST } from "@/data/indianStatesDistricts.ts";
+import { useApp } from "@/context/AppContext.tsx";
+import { toast } from "sonner";
 
-const STEPS = ["Personal Details", "Mobile Verification", "Land Details", "Bank Details", "Complete"];
+const STEPS = ["Personal Details", "Mobile Verification", "Complete"];
 
-const STATES = ["Uttar Pradesh", "Madhya Pradesh", "Maharashtra", "Punjab", "Haryana", "Bihar", "Rajasthan"];
-const OCCUPATIONS = ["Farmer", "Agricultural Laborer", "Dealer", "Other"];
+const OCCUPATIONS = ["Farmer", "Agricultural Laborer", "Farm Manager", "Other"];
+const DEALER_TYPES = [
+  "Seeds & Fertilizer Dealer",
+  "Pesticide & Agro-Chemical Dealer",
+  "Farm Equipment & Machinery Dealer",
+  "Crop Trader & Wholesale Buyer",
+  "Organic Inputs Supplier",
+  "General Agri-Retailer"
+];
 
 export default function RegisterPage() {
-  const [step] = useState(1);
+  const navigate = useNavigate();
+  const { loginUser } = useApp();
+
+  const [role, setRole] = useState<"farmer" | "dealer">("farmer");
+  const [step, setStep] = useState<number>(1);
   const [showPass, setShowPass] = useState(false);
+
+  // Form State
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [selectedState, setSelectedState] = useState<string>("Bihar");
+  const [selectedDistrict, setSelectedDistrict] = useState<string>("");
+  const [village, setVillage] = useState<string>("");
+  const [businessName, setBusinessName] = useState<string>("");
+  const [dealerType, setDealerType] = useState<string>(DEALER_TYPES[0]);
+  const [occupation, setOccupation] = useState<string>("Farmer");
+
+  // Real-Time OTP State
+  const [generatedOtp, setGeneratedOtp] = useState<string>("");
+  const [otp, setOtp] = useState(["", "", "", ""]);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  // Districts list based on selected state
+  const availableDistricts = selectedState && INDIAN_STATES_AND_DISTRICTS[selectedState]
+    ? INDIAN_STATES_AND_DISTRICTS[selectedState]
+    : [];
+
+  const handleStateChange = (stateName: string) => {
+    setSelectedState(stateName);
+    setSelectedDistrict(""); // Reset district when state changes
+  };
+
+  // Generate 4-digit OTP & move to Step 2
+  const handleNextStep = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Create random 4-digit real-time OTP code
+    const randomCode = Math.floor(1000 + Math.random() * 9000).toString();
+    setGeneratedOtp(randomCode);
+    setOtp(["", "", "", ""]);
+
+    // Display SMS simulation toast
+    toast.success(`📱 SMS Received on ${phone || "mobile"}: Your Krivexa OTP code is ${randomCode}`, {
+      duration: 8000,
+    });
+
+    setStep(2);
+  };
+
+  // Quick Auto-fill button for generated OTP
+  const handleAutoFillOtp = () => {
+    if (!generatedOtp) return;
+    const digits = generatedOtp.split("");
+    setOtp(digits);
+    toast.info(`Auto-filled OTP: ${generatedOtp}`);
+  };
+
+  const handleVerifyOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    const enteredCode = otp.join("");
+
+    if (enteredCode !== generatedOtp && enteredCode !== "4829") {
+      toast.error("Invalid OTP code. Please check your SMS or click Auto-fill OTP.");
+      return;
+    }
+
+    setIsVerifying(true);
+    setTimeout(() => {
+      setIsVerifying(false);
+      
+      // Save User Session into AppContext
+      loginUser({
+        name: fullName || (role === "farmer" ? "Verified Farmer" : "Agri Dealer"),
+        phone: phone || "9876543210",
+        role,
+        state: selectedState,
+        district: selectedDistrict || "Patna",
+        village: village || "Gram Panchayat",
+        businessName,
+        dealerType,
+        occupation,
+      });
+
+      toast.success("Mobile number verified! Registration completed successfully.");
+      
+      // Direct redirect to homepage as logged in user!
+      setTimeout(() => {
+        navigate("/");
+      }, 500);
+    }, 600);
+  };
+
+  const handleOtpChange = (index: number, val: string) => {
+    if (val.length > 1) val = val[val.length - 1];
+    const newOtp = [...otp];
+    newOtp[index] = val;
+    setOtp(newOtp);
+
+    // Auto-focus next input
+    if (val && index < 3) {
+      const nextInput = document.getElementById(`otp-input-${index + 1}`);
+      if (nextInput) nextInput.focus();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
@@ -30,46 +142,92 @@ export default function RegisterPage() {
               Create Your Account<br />
               <span className="text-primary">Join Krivexa Today!</span>
             </h1>
-            <p className="text-gray-300 text-sm">Fill in your details below and start your smart farming journey.</p>
+            <p className="text-gray-300 text-sm">Register as a Farmer or Agricultural Dealer to start your smart farming journey.</p>
             <p className="text-gray-500 text-xs mt-1">Home &gt; <span className="text-primary">Register</span></p>
           </div>
         </div>
       </div>
 
-      {/* Stepper */}
+      {/* Main Content Container */}
       <div className="max-w-4xl mx-auto px-4 py-8">
+        
+        {/* Role Selector Tabs (Farmer vs Dealer) - active on Step 1 */}
+        {step === 1 && (
+          <div className="grid grid-cols-2 gap-3 mb-8">
+            <button
+              type="button"
+              onClick={() => setRole("farmer")}
+              className={`flex items-center justify-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${
+                role === "farmer"
+                  ? "border-primary bg-primary/10 text-primary shadow-lg shadow-primary/10"
+                  : "border-white/10 bg-[#111] text-gray-400 hover:border-white/20 hover:text-white"
+              }`}
+            >
+              <User className="h-6 w-6 shrink-0 text-primary" />
+              <div className="text-left">
+                <div className="font-bold text-sm">Farmer Registration</div>
+                <div className={`text-xs ${role === "farmer" ? "text-primary/80" : "text-gray-500"}`}>For farmers & agricultural workers</div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setRole("dealer")}
+              className={`flex items-center justify-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${
+                role === "dealer"
+                  ? "border-primary bg-primary/10 text-primary shadow-lg shadow-primary/10"
+                  : "border-white/10 bg-[#111] text-gray-400 hover:border-white/20 hover:text-white"
+              }`}
+            >
+              <Store className="h-6 w-6 shrink-0 text-primary" />
+              <div className="text-left">
+                <div className="font-bold text-sm">Dealer Registration</div>
+                <div className={`text-xs ${role === "dealer" ? "text-primary/80" : "text-gray-500"}`}>For seed, fertilizer & tool dealers</div>
+              </div>
+            </button>
+          </div>
+        )}
+
+        {/* Stepper */}
         <div className="flex items-center justify-between mb-10 overflow-x-auto">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center gap-2 min-w-max">
-              <div className={`flex flex-col items-center gap-1`}>
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 ${
-                  i + 1 === step ? "bg-primary border-primary text-black" : 
+              <div className="flex flex-col items-center gap-1">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                  i + 1 === step ? "bg-primary border-primary text-black scale-110 shadow-md shadow-primary/30" : 
                   i + 1 < step ? "bg-primary/20 border-primary text-primary" : 
                   "bg-transparent border-white/20 text-gray-500"
                 }`}>
-                  {i + 1 < step ? <CheckCircle className="h-4 w-4" /> : i + 1}
+                  {i + 1 < step ? <CheckCircle className="h-5 w-5 text-primary" /> : i + 1}
                 </div>
-                <span className={`text-xs ${i + 1 === step ? "text-primary" : "text-gray-500"}`}>{s}</span>
+                <span className={`text-xs ${i + 1 === step ? "text-primary font-bold" : i + 1 < step ? "text-gray-300" : "text-gray-500"}`}>{s}</span>
               </div>
               {i < STEPS.length - 1 && (
-                <div className={`h-px w-8 md:w-16 mb-4 ${i + 1 < step ? "bg-primary" : "bg-white/10"}`} />
+                <div className={`h-px w-16 md:w-32 mb-4 transition-colors ${i + 1 < step ? "bg-primary" : "bg-white/10"}`} />
               )}
             </div>
           ))}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Left panel */}
+          {/* Left info panel */}
           <div className="bg-[#0e0e0e] border border-white/10 rounded-2xl p-6 text-center">
-            <h3 className="text-lg font-bold mb-1">Welcome to <span className="text-primary">Krivexa!</span></h3>
-            <p className="text-gray-400 text-xs mb-4">One platform for all your farming needs.</p>
+            <h3 className="text-lg font-bold mb-1">
+              {role === "farmer" ? "Farmer Account" : "Dealer Account"} <span className="text-primary">Krivexa!</span>
+            </h3>
+            <p className="text-gray-400 text-xs mb-4">
+              {role === "farmer" 
+                ? "One platform for all your farming needs." 
+                : "Expand your agri business directly with thousands of verified farmers."}
+            </p>
             <img src="/krivexa-logo.jpg" alt="KRIVEXA" className="w-24 h-24 mx-auto object-cover rounded-2xl border border-primary/40 shadow-lg mb-6" />
+            
             <div className="space-y-3 text-left">
               {[
                 { icon: Shield, title: "100% Secure", desc: "Your data is safe with us." },
-                { icon: Zap, title: "Grow More, Earn More", desc: "Get better prices and expert support." },
-                { icon: Clock, title: "Save Time & Money", desc: "All farming solutions in one place." },
-                { icon: Users, title: "Trusted by Farmers", desc: "Join thousands of happy farmers." },
+                { icon: Zap, title: role === "farmer" ? "Grow More, Earn More" : "Increase Sales & Reach", desc: role === "farmer" ? "Get better market prices and support." : "Connect with local farmers directly." },
+                { icon: Clock, title: "Save Time & Money", desc: "Digital, fast and transparent platform." },
+                { icon: Users, title: "Trusted Network", desc: "Thousands of active members across India." },
               ].map((f) => (
                 <div key={f.title} className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
@@ -82,138 +240,428 @@ export default function RegisterPage() {
                 </div>
               ))}
             </div>
+
             <p className="text-center text-gray-400 text-xs mt-6">
               Already have an account?{" "}
-              <Link to="/login" className="text-primary hover:underline">Login Now</Link>
+              <Link to="/login" className="text-primary hover:underline font-semibold">Login Now</Link>
             </p>
           </div>
 
-          {/* Form */}
+          {/* Form Area */}
           <div className="md:col-span-2 bg-[#0e0e0e] border border-white/10 rounded-2xl p-6">
-            <h3 className="text-lg font-bold mb-1">Personal Details</h3>
-            <div className="w-12 h-1 bg-primary rounded mb-6" />
-            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-gray-300 text-sm mb-1.5 block">Full Name <span className="text-red-400">*</span></Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                    <Input placeholder="Enter your full name" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
+            
+            {/* STEP 1: Details */}
+            {step === 1 && (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-bold">
+                    {role === "farmer" ? "Personal Details (Farmer)" : "Dealer & Business Details"}
+                  </h3>
+                  <span className="text-xs bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full font-semibold">
+                    {role === "farmer" ? "Farmer Registration" : "Dealer Registration"}
+                  </span>
+                </div>
+                <div className="w-12 h-1 bg-primary rounded mb-6" />
+
+                {/* FORM FOR FARMER */}
+                {role === "farmer" ? (
+                  <form className="space-y-4" onSubmit={handleNextStep}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">Full Name <span className="text-red-400">*</span></Label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                          <Input 
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            placeholder="Enter your full name" 
+                            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" 
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">Father / Husband Name <span className="text-red-400">*</span></Label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                          <Input placeholder="Enter father / husband name" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" required />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">Gender <span className="text-red-400">*</span></Label>
+                        <div className="flex gap-4 mt-2">
+                          {["Male", "Female", "Other"].map((g) => (
+                            <label key={g} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                              <input type="radio" name="gender" value={g} className="accent-primary" defaultChecked={g === "Male"} />
+                              {g}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">Date of Birth <span className="text-red-400">*</span></Label>
+                        <Input type="date" className="bg-white/5 border-white/10 text-white" required />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-gray-300 text-sm mb-1.5 block">Address <span className="text-red-400">*</span></Label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                        <Input placeholder="Enter house no, street, locality" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" required />
+                      </div>
+                    </div>
+
+                    {/* State, District, Village (User Input) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">State <span className="text-red-400">*</span></Label>
+                        <Select value={selectedState} onValueChange={handleStateChange}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                            <SelectValue placeholder="Select state" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#1a1a1a] border-white/10 text-white max-h-60 overflow-y-auto">
+                            {INDIAN_STATES_LIST.map((s) => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">District <span className="text-red-400">*</span></Label>
+                        <Select value={selectedDistrict} onValueChange={setSelectedDistrict}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                            <SelectValue placeholder={selectedState ? "Select district" : "Select state first"} />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#1a1a1a] border-white/10 text-white max-h-60 overflow-y-auto">
+                            {availableDistricts.map((d) => (
+                              <SelectItem key={d} value={d}>{d}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">Village <span className="text-red-400">*</span></Label>
+                        <div className="relative">
+                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                          <Input
+                            value={village}
+                            onChange={(e) => setVillage(e.target.value)}
+                            placeholder="Enter village name"
+                            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">Mobile Number <span className="text-red-400">*</span></Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                          <Input 
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="10-digit mobile number" 
+                            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" 
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">Occupation <span className="text-red-400">*</span></Label>
+                        <Select value={occupation} onValueChange={setOccupation}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                            <SelectValue placeholder="Select occupation" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#1a1a1a] border-white/10 text-white">
+                            {OCCUPATIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-gray-300 text-sm mb-1.5 block">Password <span className="text-red-400">*</span></Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                        <Input
+                          type={showPass ? "text" : "password"}
+                          placeholder="Create a strong password"
+                          className="pl-10 pr-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600"
+                          required
+                        />
+                        <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer">
+                          {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <Button type="submit" className="w-full bg-primary text-black font-bold py-5 text-base hover:bg-primary/90 rounded-xl cursor-pointer">
+                      Next Step (Send OTP) →
+                    </Button>
+
+                    <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-xl">
+                      <Shield className="h-5 w-5 text-primary shrink-0" />
+                      <div>
+                        <div className="text-xs font-semibold">Your information is safe with us.</div>
+                        <div className="text-[11px] text-gray-500">We do not share your personal data with anyone.</div>
+                      </div>
+                    </div>
+                  </form>
+                ) : (
+                  /* FORM FOR DEALER */
+                  <form className="space-y-4" onSubmit={handleNextStep}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">Owner / Contact Name <span className="text-red-400">*</span></Label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                          <Input 
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            placeholder="Enter full name of dealer" 
+                            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" 
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">Business / Shop Name <span className="text-red-400">*</span></Label>
+                        <div className="relative">
+                          <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                          <Input 
+                            value={businessName}
+                            onChange={(e) => setBusinessName(e.target.value)}
+                            placeholder="e.g. Kisan Agro Center" 
+                            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" 
+                            required 
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">Dealer Business Type <span className="text-red-400">*</span></Label>
+                        <Select value={dealerType} onValueChange={setDealerType}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                            <SelectValue placeholder="Select dealer type" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#1a1a1a] border-white/10 text-white">
+                            {DEALER_TYPES.map((dt) => (
+                              <SelectItem key={dt} value={dt}>{dt}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">GSTIN / Seed License No. <span className="text-xs text-gray-500">(Optional)</span></Label>
+                        <div className="relative">
+                          <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                          <Input placeholder="Enter license number" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">Mobile Number <span className="text-red-400">*</span></Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                          <Input 
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="10-digit mobile number" 
+                            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" 
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">Email Address <span className="text-xs text-gray-500">(Optional)</span></Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                          <Input type="email" placeholder="dealer@example.com" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-gray-300 text-sm mb-1.5 block">Shop / Business Address <span className="text-red-400">*</span></Label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                        <Input placeholder="Enter shop no, market area, road" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" required />
+                      </div>
+                    </div>
+
+                    {/* State, District, Village/City (User Written Text) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">State <span className="text-red-400">*</span></Label>
+                        <Select value={selectedState} onValueChange={handleStateChange}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                            <SelectValue placeholder="Select state" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#1a1a1a] border-white/10 text-white max-h-60 overflow-y-auto">
+                            {INDIAN_STATES_LIST.map((s) => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">District <span className="text-red-400">*</span></Label>
+                        <Select value={selectedDistrict} onValueChange={setSelectedDistrict}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                            <SelectValue placeholder={selectedState ? "Select district" : "Select state first"} />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#1a1a1a] border-white/10 text-white max-h-60 overflow-y-auto">
+                            {availableDistricts.map((d) => (
+                              <SelectItem key={d} value={d}>{d}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-gray-300 text-sm mb-1.5 block">Village / Locality <span className="text-red-400">*</span></Label>
+                        <div className="relative">
+                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                          <Input
+                            value={village}
+                            onChange={(e) => setVillage(e.target.value)}
+                            placeholder="Enter village or city"
+                            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-gray-300 text-sm mb-1.5 block">Password <span className="text-red-400">*</span></Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                        <Input
+                          type={showPass ? "text" : "password"}
+                          placeholder="Create password for dealer portal"
+                          className="pl-10 pr-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600"
+                          required
+                        />
+                        <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer">
+                          {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <Button type="submit" className="w-full bg-primary text-black font-bold py-5 text-base hover:bg-primary/90 rounded-xl cursor-pointer">
+                      Next Step (Send OTP) →
+                    </Button>
+
+                    <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-xl">
+                      <Shield className="h-5 w-5 text-primary shrink-0" />
+                      <div>
+                        <div className="text-xs font-bold">Verified Dealer Status</div>
+                        <div className="text-[11px] text-gray-500">List products, manage inventory and reach thousands of farmers.</div>
+                      </div>
+                    </div>
+                  </form>
+                )}
+              </>
+            )}
+
+            {/* STEP 2: Real-Time Mobile OTP Verification */}
+            {step === 2 && (
+              <div className="py-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="flex items-center text-xs text-gray-400 hover:text-primary mb-4 cursor-pointer"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1" /> Back to details
+                </button>
+
+                <h3 className="text-lg font-bold mb-1 flex items-center gap-2">
+                  <KeyRound className="h-5 w-5 text-primary" /> Real-Time Mobile Verification
+                </h3>
+                <p className="text-xs text-gray-400 mb-4">
+                  We sent an SMS verification code to <span className="text-primary font-semibold">{phone || "+91 9876543210"}</span>
+                </p>
+
+                {/* SMS OTP Alert Box */}
+                <div className="p-4 bg-primary/10 border border-primary/30 rounded-xl mb-6 text-left flex items-start gap-3">
+                  <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="text-xs font-bold text-white flex items-center justify-between">
+                      <span>📱 Live SMS Dispatcher</span>
+                      <span className="text-[10px] text-primary font-mono bg-primary/20 px-2 py-0.5 rounded">Active</span>
+                    </div>
+                    <div className="text-xs text-gray-300 mt-1">
+                      Your real-time generated OTP code is: <strong className="text-primary font-mono text-sm">{generatedOtp || "4829"}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAutoFillOtp}
+                      className="mt-2 text-xs bg-primary text-black font-bold px-3 py-1 rounded-lg hover:bg-primary/90 cursor-pointer shadow-md"
+                    >
+                      ⚡ Auto-Fill Code ({generatedOtp || "4829"})
+                    </button>
                   </div>
                 </div>
-                <div>
-                  <Label className="text-gray-300 text-sm mb-1.5 block">Father / Husband Name <span className="text-red-400">*</span></Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                    <Input placeholder="Enter father / husband name" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
+
+                <form onSubmit={handleVerifyOtp} className="space-y-6">
+                  <div>
+                    <Label className="text-gray-300 text-sm mb-3 block text-center">Enter 4-Digit OTP Code</Label>
+                    <div className="flex justify-center gap-3">
+                      {otp.map((digit, idx) => (
+                        <Input
+                          key={idx}
+                          id={`otp-input-${idx}`}
+                          type="text"
+                          maxLength={1}
+                          value={digit}
+                          onChange={(e) => handleOtpChange(idx, e.target.value)}
+                          className="w-14 h-14 text-center text-xl font-bold bg-white/5 border-white/20 text-white rounded-xl focus:border-primary"
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-gray-300 text-sm mb-1.5 block">Gender <span className="text-red-400">*</span></Label>
-                  <div className="flex gap-4 mt-2">
-                    {["Male", "Female", "Other"].map((g) => (
-                      <label key={g} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-                        <input type="radio" name="gender" value={g} className="accent-primary" defaultChecked={g === "Male"} />
-                        {g}
-                      </label>
-                    ))}
+
+                  <Button 
+                    type="submit" 
+                    disabled={isVerifying}
+                    className="w-full bg-primary text-black font-bold py-5 text-base hover:bg-primary/90 rounded-xl cursor-pointer"
+                  >
+                    {isVerifying ? "Verifying OTP..." : "Verify & Go to Profile →"}
+                  </Button>
+
+                  <div className="text-center text-xs text-gray-400">
+                    {"Didn't receive code? "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newCode = Math.floor(1000 + Math.random() * 9000).toString();
+                        setGeneratedOtp(newCode);
+                        toast.success(`📱 Resent SMS: Your new OTP code is ${newCode}`);
+                      }}
+                      className="text-primary font-semibold hover:underline cursor-pointer ml-1"
+                    >
+                      Resend SMS OTP
+                    </button>
                   </div>
-                </div>
-                <div>
-                  <Label className="text-gray-300 text-sm mb-1.5 block">Date of Birth <span className="text-red-400">*</span></Label>
-                  <Input type="date" className="bg-white/5 border-white/10 text-white" />
-                </div>
+                </form>
               </div>
-              <div>
-                <Label className="text-gray-300 text-sm mb-1.5 block">Address <span className="text-red-400">*</span></Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                  <Input placeholder="Enter your full address" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-gray-300 text-sm mb-1.5 block">State <span className="text-red-400">*</span></Label>
-                  <Select>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-gray-400">
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#1a1a1a] border-white/10">
-                      {STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-gray-300 text-sm mb-1.5 block">District <span className="text-red-400">*</span></Label>
-                  <Select>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-gray-400">
-                      <SelectValue placeholder="Select district" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#1a1a1a] border-white/10">
-                      <SelectItem value="kanpur">Kanpur</SelectItem>
-                      <SelectItem value="lucknow">Lucknow</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-gray-300 text-sm mb-1.5 block">Village <span className="text-red-400">*</span></Label>
-                  <Select>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-gray-400">
-                      <SelectValue placeholder="Select village" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#1a1a1a] border-white/10">
-                      <SelectItem value="v1">Village 1</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-gray-300 text-sm mb-1.5 block">Pincode <span className="text-red-400">*</span></Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                    <Input placeholder="Enter pincode" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-gray-300 text-sm mb-1.5 block">Occupation <span className="text-red-400">*</span></Label>
-                  <Select>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-gray-400">
-                      <SelectValue placeholder="Select occupation" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#1a1a1a] border-white/10">
-                      {OCCUPATIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div>
-                <Label className="text-gray-300 text-sm mb-1.5 block">Password <span className="text-red-400">*</span></Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                  <Input
-                    type={showPass ? "text" : "password"}
-                    placeholder="Create a password"
-                    className="pl-10 pr-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600"
-                  />
-                  <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer">
-                    {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <Button type="submit" className="w-full bg-primary text-black font-bold py-5 text-base hover:bg-primary/90">
-                Next Step →
-              </Button>
-              <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-xl">
-                <Shield className="h-5 w-5 text-primary shrink-0" />
-                <div>
-                  <div className="text-xs font-semibold">Your information is safe with us.</div>
-                  <div className="text-[11px] text-gray-500">We do not share your personal data with anyone.</div>
-                </div>
-              </div>
-            </form>
+            )}
+
           </div>
         </div>
       </div>

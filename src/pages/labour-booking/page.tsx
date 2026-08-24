@@ -1,136 +1,219 @@
 import { useState } from "react";
-import { Users, MapPin, Calendar, Star, Phone, CheckCircle } from "lucide-react";
+import { Users, MapPin, Calendar, Phone, CheckCircle2, Loader2, Bell, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
-import { Badge } from "@/components/ui/badge.tsx";
 import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
 import { toast } from "sonner";
-
-const LABOUR_TYPES = [
-  { type: "Harvesting Labour", rate: "₹600/day", available: 24, rating: 4.7, skills: ["Wheat Harvest", "Paddy Harvest", "Soyabean"], img: "https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=300&q=80" },
-  { type: "Sowing Labour", rate: "₹500/day", available: 18, rating: 4.6, skills: ["Seed Sowing", "Transplanting", "Row Planting"], img: "https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?w=300&q=80" },
-  { type: "Irrigation Labour", rate: "₹450/day", available: 12, rating: 4.5, skills: ["Canal Irrigation", "Drip Setup", "Sprinkler"], img: "https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=300&q=80" },
-  { type: "Weeding Labour", rate: "₹400/day", available: 30, rating: 4.8, skills: ["Manual Weeding", "Chemical Spray", "Hoeing"], img: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=300&q=80" },
-  { type: "Crop Loading Labour", rate: "₹550/day", available: 8, rating: 4.6, skills: ["Loading", "Unloading", "Transport"], img: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=300&q=80" },
-  { type: "Orchard Labour", rate: "₹650/day", available: 10, rating: 4.9, skills: ["Fruit Picking", "Pruning", "Spraying"], img: "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=300&q=80" },
-];
+import { useApp } from "@/context/AppContext.tsx";
 
 export default function LabourBookingPage() {
-  const [selected, setSelected] = useState<string | null>(null);
+  const { labourTypes, addLabourBooking, labourBookings, checkKccPermission, t } = useApp();
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [numDays, setNumDays] = useState<string>("");
+  const [form, setForm] = useState({
+    labourType: "",
+    count: "",
+    days: "",
+    startDate: "",
+    endDate: "",
+    location: "",
+    userName: "",
+    phone: "",
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!checkKccPermission()) return;
+    if (!form.labourType || !form.count || !form.days || !form.location || !form.userName || !form.phone) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
+    setLoading(true);
+    setTimeout(() => {
+      addLabourBooking({
+        userName: form.userName,
+        phone: form.phone,
+        labourType: form.labourType,
+        count: parseInt(form.count),
+        days: parseInt(form.days),
+        startDate: form.startDate,
+        endDate: form.endDate,
+        location: form.location,
+      });
+      setLoading(false);
+      setSubmitted(true);
+    }, 1200);
+  };
+
+  const userBookings = labourBookings.slice(0, 3); // show recent
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <Navbar />
 
-      <div className="relative h-36 overflow-hidden">
+      {/* Header */}
+      <div className="relative h-44 overflow-hidden">
         <img src="https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=1200&q=80" alt="" className="w-full h-full object-cover opacity-20" />
-        <div className="absolute inset-0 bg-linear-to-r from-[#0a0a0a] flex items-center px-6">
+        <div className="absolute inset-0 bg-linear-to-r from-[#0a0a0a] flex items-end px-6 pb-6">
           <div className="max-w-7xl mx-auto w-full">
-            <h1 className="text-3xl font-black" style={{ fontFamily: "Rajdhani, sans-serif" }}>
-              <span className="text-primary">Labour</span> Booking
+            <h1 className="text-4xl font-black" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+              <span className="text-primary">{t.labourBooking.title.split(" ")[0]}</span> {t.labourBooking.title.split(" ").slice(1).join(" ")}
             </h1>
-            <p className="text-gray-400 text-sm">Book skilled agricultural workers for your farm instantly</p>
+            <p className="text-gray-400 text-sm mt-1">{t.labourBooking.subtitle}</p>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 mb-10">
-          {LABOUR_TYPES.map((l) => (
-            <div
-              key={l.type}
-              onClick={() => setSelected(l.type)}
-              className={`bg-[#111] border rounded-2xl overflow-hidden cursor-pointer transition-all hover:border-primary/40 ${selected === l.type ? "border-primary" : "border-white/10"}`}
-            >
-              <div className="relative h-40 overflow-hidden">
-                <img src={l.img} alt={l.type} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
-                {selected === l.type && (
-                  <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                    <CheckCircle className="h-10 w-10 text-primary" />
+      <div className="max-w-2xl mx-auto px-4 py-10 space-y-8">
+        {/* Booking Form */}
+        <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden">
+          <div className="p-6 border-b border-white/10 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold">{submitted ? t.labourBooking.submittedTitle : t.labourBooking.formHeader}</h2>
+              <p className="text-xs text-gray-400">{t.labourBooking.formSubheader}</p>
+            </div>
+          </div>
+
+          {submitted ? (
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">{t.labourBooking.submittedTitle}</h3>
+              <p className="text-gray-400 text-sm mb-5">{t.labourBooking.submittedMsg}</p>
+              <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-full px-4 py-2 text-amber-400 text-sm mb-5">
+                <Clock className="h-4 w-4" /> {t.labourBooking.pendingBadge}
+              </div>
+              <div className="mt-4">
+                <Button onClick={() => { setSubmitted(false); setForm({ labourType: "", count: "", days: "", startDate: "", endDate: "", location: "", userName: "", phone: "" }); setNumDays(""); }}
+                  className="bg-primary text-black font-bold">{t.labourBooking.submitAnother}</Button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+              {/* Labour Type */}
+              <div>
+                <Label className="text-gray-300 text-sm mb-1.5 block">{t.labourBooking.labourType} *</Label>
+                <Select onValueChange={(v) => setForm(f => ({ ...f, labourType: v }))}>
+                  <SelectTrigger className="bg-white/5 border-white/10 text-gray-300">
+                    <SelectValue placeholder="Select labour type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a1a] border-white/10">
+                    {labourTypes.map((type) => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Count & Days */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-300 text-sm mb-1.5 block">{t.labourBooking.numLabours} *</Label>
+                  <Input type="number" value={form.count} onChange={e => setForm(f => ({ ...f, count: e.target.value }))} placeholder="e.g. 5" min="1" className="bg-white/5 border-white/10 text-white" required />
+                </div>
+                <div>
+                  <Label className="text-gray-300 text-sm mb-1.5 block">{t.labourBooking.numDays} *</Label>
+                  <Input type="number" value={form.days} onChange={e => { setForm(f => ({ ...f, days: e.target.value })); setNumDays(e.target.value); }} placeholder="e.g. 3" min="1" className="bg-white/5 border-white/10 text-white" required />
+                </div>
+              </div>
+
+              {/* Start & End Date (show end date only if days > 2) */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-300 text-sm mb-1.5 block">{t.labourBooking.startDate}</Label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                    <Input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} className="pl-10 bg-white/5 border-white/10 text-white" />
+                  </div>
+                </div>
+                {parseInt(numDays) > 2 && (
+                  <div>
+                    <Label className="text-gray-300 text-sm mb-1.5 block">{t.labourBooking.endDate}</Label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                      <Input type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} className="pl-10 bg-white/5 border-white/10 text-white" />
+                    </div>
                   </div>
                 )}
-                <div className="absolute top-2 right-2">
-                  <Badge className="bg-primary/90 text-black text-[10px] font-bold">{l.available} Available</Badge>
+              </div>
+
+              {/* Location */}
+              <div>
+                <Label className="text-gray-300 text-sm mb-1.5 block">{t.labourBooking.location} *</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  <Input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Village / Field location" className="pl-10 bg-white/5 border-white/10 text-white" required />
                 </div>
               </div>
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-sm">{l.type}</h3>
-                  <div className="flex items-center gap-1 text-xs">
-                    <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
-                    <span>{l.rating}</span>
+
+              {/* Personal Info */}
+              <div className="border-t border-white/10 pt-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-gray-300 text-sm mb-1.5 block">{t.labourBooking.name} *</Label>
+                    <Input value={form.userName} onChange={e => setForm(f => ({ ...f, userName: e.target.value }))} placeholder="Your full name" className="bg-white/5 border-white/10 text-white" required />
+                  </div>
+                  <div>
+                    <Label className="text-gray-300 text-sm mb-1.5 block">{t.labourBooking.phone} *</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                      <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="10-digit number" className="pl-10 bg-white/5 border-white/10 text-white" required />
+                    </div>
                   </div>
                 </div>
-                <div className="text-primary font-black mb-3" style={{ fontFamily: "Rajdhani, sans-serif" }}>{l.rate}</div>
-                <div className="flex gap-1 flex-wrap">
-                  {l.skills.map((s) => (
-                    <span key={s} className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-gray-400">{s}</span>
-                  ))}
-                </div>
               </div>
-            </div>
-          ))}
+
+              <Button type="submit" disabled={loading} className="w-full bg-primary text-black font-bold py-5 text-base hover:bg-primary/90 rounded-xl">
+                {loading ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Submitting...</> : <><Users className="h-5 w-5 mr-2" />{t.labourBooking.submit}</>}
+              </Button>
+            </form>
+          )}
         </div>
 
-        {/* Booking Form */}
-        <div className="max-w-xl mx-auto bg-[#111] border border-white/10 rounded-2xl p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <Users className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-bold">Book Labour</h2>
+        {/* Assigned Labour Notifications */}
+        <div className="bg-[#111] border border-white/10 rounded-2xl p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <Bell className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-bold">{t.labourBooking.assignedTitle}</h2>
           </div>
-          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); toast.success("Labour booked successfully! We will contact you shortly."); }}>
-            <div>
-              <Label className="text-gray-300 text-sm mb-1.5 block">Labour Type</Label>
-              <Select>
-                <SelectTrigger className="bg-white/5 border-white/10 text-gray-300">
-                  <SelectValue placeholder={selected ?? "Select labour type"} />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-white/10">
-                  {LABOUR_TYPES.map((l) => (
-                    <SelectItem key={l.type} value={l.type}>{l.type} — {l.rate}</SelectItem>
+          {userBookings.filter(b => b.status === "assigned").length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Bell className="h-10 w-10 mx-auto mb-3 opacity-20" />
+              <p className="text-sm">{t.labourBooking.noAssigned}</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {userBookings.filter(b => b.status === "assigned").map(b => (
+                <div key={b.id} className="bg-white/5 border border-primary/20 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-semibold text-sm">{b.labourType}</p>
+                    <span className="text-xs bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-0.5">Assigned</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-3">{b.count} workers · {b.days} days · {b.location}</p>
+                  {b.assignedLabours && b.assignedLabours.map((l, i) => (
+                    <div key={i} className="flex items-center justify-between bg-white/5 rounded-lg p-3 mb-2">
+                      <div>
+                        <p className="text-sm font-semibold">{l.name}</p>
+                        <p className="text-xs text-gray-400">{l.charges}</p>
+                      </div>
+                      <a href={`tel:${l.phone}`} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                        <Phone className="h-3 w-3" />{l.phone}
+                      </a>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                  {b.adminNotes && <p className="text-xs text-amber-400 mt-2">Admin note: {b.adminNotes}</p>}
+                </div>
+              ))}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-gray-300 text-sm mb-1.5 block">Number of Workers</Label>
-                <Input type="number" placeholder="e.g. 5" min="1" className="bg-white/5 border-white/10 text-white" />
-              </div>
-              <div>
-                <Label className="text-gray-300 text-sm mb-1.5 block">Number of Days</Label>
-                <Input type="number" placeholder="e.g. 3" min="1" className="bg-white/5 border-white/10 text-white" />
-              </div>
-            </div>
-            <div>
-              <Label className="text-gray-300 text-sm mb-1.5 block">Start Date</Label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                <Input type="date" className="pl-10 bg-white/5 border-white/10 text-white" />
-              </div>
-            </div>
-            <div>
-              <Label className="text-gray-300 text-sm mb-1.5 block">Village / Location</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                <Input placeholder="Enter your village/location" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
-              </div>
-            </div>
-            <div>
-              <Label className="text-gray-300 text-sm mb-1.5 block">Contact Number</Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                <Input placeholder="Your mobile number" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
-              </div>
-            </div>
-            <Button type="submit" className="w-full bg-primary text-black font-bold py-5 text-base hover:bg-primary/90">
-              Book Labour Now →
-            </Button>
-          </form>
+          )}
         </div>
       </div>
 

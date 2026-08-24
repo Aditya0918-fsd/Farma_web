@@ -1,6 +1,7 @@
 import { CloudSun, Droplets, Wind, Eye, Thermometer, Cloud, Sun, CloudRain } from "lucide-react";
 import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
+import { useApp } from "@/context/AppContext.tsx";
 
 const HOURLY = [
   { time: "6 AM", icon: Sun, temp: 24, rain: "5%" },
@@ -28,6 +29,7 @@ const FARM_TIPS = [
 ];
 
 export default function WeatherPage() {
+  const { t } = useApp();
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <Navbar />
@@ -37,9 +39,9 @@ export default function WeatherPage() {
         <div className="absolute inset-0 bg-linear-to-r from-[#0a0a0a] flex items-center px-6">
           <div className="max-w-7xl mx-auto w-full">
             <h1 className="text-3xl font-black" style={{ fontFamily: "Rajdhani, sans-serif" }}>
-              <span className="text-primary">Weather</span> Update
+              <span className="text-primary">{t.weather.title.split(" ")[0]}</span> {t.weather.title.split(" ").slice(1).join(" ")}
             </h1>
-            <p className="text-gray-400 text-sm">Real-time weather forecast for smarter farming decisions</p>
+            <p className="text-gray-400 text-sm">{t.weather.subtitle}</p>
           </div>
         </div>
       </div>
@@ -82,7 +84,7 @@ export default function WeatherPage() {
 
         {/* Hourly */}
         <div className="bg-[#111] border border-white/10 rounded-2xl p-5 mb-6">
-          <h3 className="font-bold mb-4">Today's Hourly Forecast</h3>
+          <h3 className="font-bold mb-4">{t.weather.hourlyForecast}</h3>
           <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
             {HOURLY.map((h) => (
               <div key={h.time} className="bg-white/5 rounded-xl p-3 text-center">
@@ -97,7 +99,7 @@ export default function WeatherPage() {
 
         {/* Weekly */}
         <div className="bg-[#111] border border-white/10 rounded-2xl p-5 mb-6">
-          <h3 className="font-bold mb-4">7-Day Forecast</h3>
+          <h3 className="font-bold mb-4">{t.weather.weeklyForecast}</h3>
           <div className="space-y-2">
             {WEEKLY.map((d) => (
               <div key={d.day} className="flex items-center gap-4 py-2 border-b border-white/5 last:border-0">
@@ -116,7 +118,7 @@ export default function WeatherPage() {
 
         {/* Farm Advisory */}
         <div>
-          <h3 className="font-bold mb-4">Farm Weather Advisory</h3>
+          <h3 className="font-bold mb-4">{t.weather.advisoryTitle}</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {FARM_TIPS.map((t) => (
               <div key={t.title} className={`p-4 rounded-2xl border ${t.type === "warning" ? "bg-yellow-500/10 border-yellow-500/20" : t.type === "success" ? "bg-primary/10 border-primary/20" : "bg-blue-500/10 border-blue-500/20"}`}>

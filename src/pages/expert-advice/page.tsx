@@ -1,146 +1,177 @@
 import { useState } from "react";
-import { MessageSquare, Send, Phone, Star, Clock } from "lucide-react";
+import { MessageSquare, Phone, Loader2, CheckCircle2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { Badge } from "@/components/ui/badge.tsx";
+import { Label } from "@/components/ui/label.tsx";
 import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
 import { toast } from "sonner";
+import { useApp } from "@/context/AppContext.tsx";
 
-const EXPERTS = [
-  { name: "Dr. Suresh Kumar", speciality: "Crop Disease Expert", exp: "15 yrs", rating: 4.9, reviews: 234, available: true, img: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=100&q=80" },
-  { name: "Dr. Anita Patel", speciality: "Soil & Fertilizer Specialist", exp: "12 yrs", rating: 4.8, reviews: 189, available: true, img: "https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=100&q=80" },
-  { name: "Dr. Ramesh Singh", speciality: "Irrigation & Water Mgmt", exp: "18 yrs", rating: 4.9, reviews: 302, available: false, img: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&q=80" },
-  { name: "Dr. Priya Sharma", speciality: "Organic Farming Expert", exp: "10 yrs", rating: 4.7, reviews: 145, available: true, img: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=100&q=80" },
-];
-
-const FAQS = [
-  { q: "My wheat crop has yellow spots, what disease is it?", a: "Yellow spots on wheat usually indicate Wheat Yellow Rust. Apply Propiconazole fungicide at 0.1% concentration. Contact an expert for confirmation.", category: "Disease" },
-  { q: "When is the best time to apply urea to paddy?", a: "Apply urea in 3 splits: at transplanting, 25-30 days after transplanting, and at panicle initiation stage.", category: "Fertilizer" },
-  { q: "How to control white fly in cotton?", a: "Use Imidacloprid 17.8 SL at 0.5 ml/litre water. Spray in the evening for better results.", category: "Pest Control" },
-];
+const ADMIN_PHONE = "8708742170";
 
 export default function ExpertAdvicePage() {
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState([
-    { from: "expert", text: "Hello! I am Dr. Suresh Kumar. How can I help you with your crops today?" },
-  ]);
+  const { addExpertQuery, checkKccPermission, t } = useApp();
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    farmerName: "",
+    phone: "",
+    address: "",
+    cropName: "",
+    problemDetails: "",
+  });
 
-  const sendMessage = () => {
-    if (!message.trim()) return;
-    setMessages((prev) => [...prev, { from: "user", text: message }]);
-    setMessage("");
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!checkKccPermission()) return;
+    if (!form.farmerName || !form.phone || !form.cropName || !form.problemDetails) {
+      toast.error("Please fill all required fields.");
+      return;
+    }
+    setLoading(true);
     setTimeout(() => {
-      setMessages((prev) => [...prev, { from: "expert", text: "Thank you for your question. Let me analyze this and provide you with the best solution. Could you also share a photo of the affected crop?" }]);
-    }, 1000);
+      addExpertQuery({
+        farmerName: form.farmerName,
+        phone: form.phone,
+        address: form.address,
+        cropName: form.cropName,
+        problemDetails: form.problemDetails,
+      });
+      setLoading(false);
+      setSubmitted(true);
+    }, 1200);
+  };
+
+  const handleCall = () => {
+    if (!checkKccPermission()) return;
+    window.location.href = `tel:${ADMIN_PHONE}`;
+  };
+
+  const handleWhatsApp = () => {
+    if (!checkKccPermission()) return;
+    window.open(`https://wa.me/91${ADMIN_PHONE}?text=Hello, I need expert advice regarding my crops. Please assist me.`, "_blank");
   };
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <Navbar />
 
-      <div className="relative h-36 overflow-hidden">
+      {/* Header */}
+      <div className="relative h-44 overflow-hidden">
         <img src="https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=1200&q=80" alt="" className="w-full h-full object-cover opacity-20" />
-        <div className="absolute inset-0 bg-linear-to-r from-[#0a0a0a] flex items-center px-6">
+        <div className="absolute inset-0 bg-linear-to-r from-[#0a0a0a] flex items-end px-6 pb-6">
           <div className="max-w-7xl mx-auto w-full">
-            <h1 className="text-3xl font-black" style={{ fontFamily: "Rajdhani, sans-serif" }}>
-              <span className="text-primary">Expert</span> Advice
+            <h1 className="text-4xl font-black" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+              <span className="text-primary">{t.expertAdvice.title.split(" ")[0]}</span> {t.expertAdvice.title.split(" ").slice(1).join(" ")}
             </h1>
-            <p className="text-gray-400 text-sm">Get expert solutions for your crop problems instantly</p>
+            <p className="text-gray-400 text-sm mt-1">{t.expertAdvice.subtitle}</p>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Expert List */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold mb-4">Available Experts</h2>
-            {EXPERTS.map((e) => (
-              <div key={e.name} className="bg-[#111] border border-white/10 rounded-2xl p-4 hover:border-primary/40 transition-colors">
-                <div className="flex items-start gap-3">
-                  <div className="relative">
-                    <img src={e.img} alt={e.name} className="w-12 h-12 rounded-full object-cover" />
-                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#111] ${e.available ? "bg-primary" : "bg-gray-500"}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold">{e.name}</div>
-                    <div className="text-xs text-gray-400">{e.speciality}</div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <div className="flex items-center gap-0.5 text-xs">
-                        <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
-                        <span className="font-semibold">{e.rating}</span>
-                      </div>
-                      <span className="text-gray-600">•</span>
-                      <span className="text-xs text-gray-500">{e.exp} exp</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-2 mt-3">
-                  <Button size="sm" onClick={() => toast.success(`Chat started with ${e.name}`)} disabled={!e.available} className="flex-1 bg-primary text-black font-semibold text-xs h-8">
-                    <MessageSquare className="h-3 w-3 mr-1" /> Chat
-                  </Button>
-                  <Button size="sm" onClick={() => toast.info(`Calling ${e.name}...`)} variant="ghost" disabled={!e.available} className="flex-1 border border-white/10 text-xs h-8">
-                    <Phone className="h-3 w-3 mr-1" /> Call
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Chat */}
-          <div className="lg:col-span-2 bg-[#111] border border-white/10 rounded-2xl flex flex-col h-125">
-            <div className="p-4 border-b border-white/10 flex items-center gap-3">
-              <img src={EXPERTS[0].img} alt="" className="w-9 h-9 rounded-full object-cover" />
-              <div>
-                <div className="text-sm font-bold">{EXPERTS[0].name}</div>
-                <div className="flex items-center gap-1 text-xs text-primary">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                  Online
-                </div>
-              </div>
+      <div className="max-w-2xl mx-auto px-4 py-10 space-y-6">
+        {/* Instant Contact Options */}
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={handleCall}
+            className="flex flex-col items-center gap-3 p-5 bg-primary/5 border border-primary/20 rounded-2xl hover:bg-primary/10 hover:border-primary/50 transition-all cursor-pointer group"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <Phone className="h-7 w-7 text-primary" />
             </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-xs px-4 py-2.5 rounded-2xl text-sm ${m.from === "user" ? "bg-primary text-black" : "bg-white/10 text-white"}`}>
-                    {m.text}
-                  </div>
-                </div>
-              ))}
+            <div className="text-center">
+              <p className="font-bold text-white">{t.expertAdvice.callAdmin}</p>
+              <p className="text-xs text-gray-400 mt-0.5">+91 {ADMIN_PHONE}</p>
             </div>
-
-            <div className="p-4 border-t border-white/10 flex gap-2">
-              <Input
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                placeholder="Type your question..."
-                className="bg-white/5 border-white/10 text-white placeholder:text-gray-600"
-              />
-              <Button onClick={sendMessage} className="bg-primary text-black font-semibold shrink-0">
-                <Send className="h-4 w-4" />
-              </Button>
+          </button>
+          <button
+            onClick={handleWhatsApp}
+            className="flex flex-col items-center gap-3 p-5 bg-green-500/5 border border-green-500/20 rounded-2xl hover:bg-green-500/10 hover:border-green-500/50 transition-all cursor-pointer group"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <MessageSquare className="h-7 w-7 text-green-400" />
             </div>
-          </div>
+            <div className="text-center">
+              <p className="font-bold text-white">{t.expertAdvice.whatsappAdmin}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Chat on WhatsApp</p>
+            </div>
+          </button>
         </div>
 
-        {/* FAQs */}
-        <div className="mt-10">
-          <h2 className="text-xl font-bold mb-5">Common Questions & Answers</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {FAQS.map((faq) => (
-              <div key={faq.q} className="bg-[#111] border border-white/10 rounded-2xl p-5 hover:border-primary/40 transition-colors">
-                <Badge className="bg-primary/20 text-primary border-primary/30 text-xs mb-3">{faq.category}</Badge>
-                <div className="flex items-start gap-2 mb-2">
-                  <Clock className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                  <p className="text-sm font-semibold">{faq.q}</p>
-                </div>
-                <p className="text-xs text-gray-400 leading-relaxed pl-6">{faq.a}</p>
-              </div>
-            ))}
+        {/* Expert Query Form */}
+        <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden">
+          <div className="p-6 border-b border-white/10 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <MessageSquare className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold">{t.expertAdvice.formHeader}</h2>
+              <p className="text-xs text-gray-400">{t.expertAdvice.formSubheader}</p>
+            </div>
           </div>
+
+          {submitted ? (
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">{t.expertAdvice.submittedTitle}</h3>
+              <p className="text-gray-400 text-sm mb-4">{t.expertAdvice.submittedMsg}</p>
+              <div className="bg-white/5 rounded-xl p-4 text-left text-sm text-gray-300 mb-5 space-y-1">
+                <p>👤 <strong>Farmer:</strong> {form.farmerName}</p>
+                <p>🌾 <strong>Crop:</strong> {form.cropName}</p>
+                <p>📋 <strong>Problem:</strong> {form.problemDetails.substring(0, 80)}{form.problemDetails.length > 80 ? "..." : ""}</p>
+              </div>
+              <Button onClick={() => { setSubmitted(false); setForm({ farmerName: "", phone: "", address: "", cropName: "", problemDetails: "" }); }}
+                className="bg-primary text-black font-bold">{t.expertAdvice.submitAnother}</Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-300 text-sm mb-1.5 block">{t.expertAdvice.farmerName} *</Label>
+                  <Input value={form.farmerName} onChange={e => setForm(f => ({ ...f, farmerName: e.target.value }))} placeholder="Your full name" className="bg-white/5 border-white/10 text-white" required />
+                </div>
+                <div>
+                  <Label className="text-gray-300 text-sm mb-1.5 block">{t.expertAdvice.phone} *</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                    <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="10-digit number" className="pl-10 bg-white/5 border-white/10 text-white" required />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-gray-300 text-sm mb-1.5 block">{t.expertAdvice.address}</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  <Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Village, District, State" className="pl-10 bg-white/5 border-white/10 text-white" />
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-gray-300 text-sm mb-1.5 block">{t.expertAdvice.cropName} *</Label>
+                <Input value={form.cropName} onChange={e => setForm(f => ({ ...f, cropName: e.target.value }))} placeholder="e.g. Wheat, Paddy, Cotton" className="bg-white/5 border-white/10 text-white" required />
+              </div>
+
+              <div>
+                <Label className="text-gray-300 text-sm mb-1.5 block">{t.expertAdvice.problemDetails} *</Label>
+                <textarea
+                  value={form.problemDetails}
+                  onChange={e => setForm(f => ({ ...f, problemDetails: e.target.value }))}
+                  placeholder="Describe the symptoms, affected area, and anything else relevant..."
+                  rows={4}
+                  required
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder:text-gray-600 text-sm resize-none focus:outline-none focus:border-primary/50 transition-colors"
+                />
+              </div>
+
+              <Button type="submit" disabled={loading} className="w-full bg-primary text-black font-bold py-5 text-base hover:bg-primary/90 rounded-xl">
+                {loading ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Submitting...</> : <><MessageSquare className="h-5 w-5 mr-2" />{t.expertAdvice.submit}</>}
+              </Button>
+            </form>
+          )}
         </div>
       </div>
 
