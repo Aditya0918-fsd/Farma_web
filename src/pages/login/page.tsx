@@ -9,14 +9,15 @@ import Footer from "@/components/Footer.tsx";
 import { useApp } from "@/context/AppContext.tsx";
 import { toast } from "sonner";
 
-type LoginType = "farmer" | "dealer";
+type LoginType = "farmer" | "dealer" | "admin";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { loginUser } = useApp();
+  const { loginUser, adminLogin } = useApp();
   const [loginType, setLoginType] = useState<LoginType>("farmer");
   const [showPass, setShowPass] = useState(false);
   const [mobileNumber, setMobileNumber] = useState("");
+  const [adminId, setAdminId] = useState("");
   const [password, setPassword] = useState("");
   const [inputCaptcha, setInputCaptcha] = useState("");
   const [captcha, setCaptcha] = useState("7K8P2");
@@ -25,6 +26,7 @@ export default function LoginPage() {
   const typeConfig = {
     farmer: { label: "Farmer Login", subtitle: "Login as a Farmer", icon: User },
     dealer: { label: "Dealer Login", subtitle: "Login as a Dealer", icon: Store },
+    admin: { label: "Admin Login", subtitle: "Login as System Administrator", icon: Shield },
   };
 
   const handleRefreshCaptcha = () => {
@@ -42,6 +44,18 @@ export default function LoginPage() {
 
     setTimeout(() => {
       setIsLoading(false);
+
+      if (loginType === "admin") {
+        if (adminId.trim() === "Aditya Saha" && password === "Adi890655") {
+          adminLogin("Aditya Saha", "Adi890655");
+          toast.success("Welcome Admin Aditya Saha! Redirecting to Admin Control Center...");
+          navigate("/admin");
+        } else {
+          toast.error("Invalid Admin ID or Password! Default Admin ID: Aditya Saha, Password: Adi890655");
+        }
+        return;
+      }
+
       const roleTitle = loginType === "farmer" ? "Farmer Partner" : "Agri Dealer";
       
       // Save User Session to AppContext
@@ -80,24 +94,24 @@ export default function LoginPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-10">
         {/* Type selector */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          {(["farmer", "dealer"] as LoginType[]).map((type) => {
+        <div className="grid grid-cols-3 gap-3 mb-8">
+          {(["farmer", "dealer", "admin"] as LoginType[]).map((type) => {
             const cfg = typeConfig[type];
             return (
               <button
                 key={type}
                 type="button"
                 onClick={() => setLoginType(type)}
-                className={`flex items-center justify-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-3 p-3.5 rounded-xl border transition-all cursor-pointer ${
                   loginType === type
-                    ? "border-primary bg-primary/10 text-primary shadow-lg shadow-primary/10"
+                    ? "border-primary bg-primary/10 text-primary shadow-lg shadow-primary/10 font-bold"
                     : "border-white/10 bg-[#111] text-gray-300 hover:border-white/20"
                 }`}
               >
-                <cfg.icon className="h-6 w-6 shrink-0" />
+                <cfg.icon className="h-5 w-5 shrink-0" />
                 <div className="text-left">
-                  <div className="font-semibold text-sm">{cfg.label}</div>
-                  <div className={`text-xs ${loginType === type ? "text-primary" : "text-gray-500"}`}>{cfg.subtitle}</div>
+                  <div className="font-semibold text-xs sm:text-sm">{cfg.label}</div>
+                  <div className={`text-[10px] sm:text-xs ${loginType === type ? "text-primary" : "text-gray-500"}`}>{cfg.subtitle}</div>
                 </div>
               </button>
             );
@@ -133,19 +147,35 @@ export default function LoginPage() {
           <div className="md:col-span-3 bg-[#0e0e0e] border border-white/10 rounded-2xl p-6">
             <h3 className="text-xl font-bold mb-6">{typeConfig[loginType].label}</h3>
             <form className="space-y-4" onSubmit={handleLogin}>
-              <div>
-                <Label className="text-gray-300 text-sm mb-1.5 block">Mobile Number <span className="text-red-400">*</span></Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                  <Input 
-                    value={mobileNumber}
-                    onChange={(e) => setMobileNumber(e.target.value)}
-                    placeholder="Enter your 10-digit mobile number" 
-                    className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" 
-                    required
-                  />
+              {loginType === "admin" ? (
+                <div>
+                  <Label className="text-gray-300 text-sm mb-1.5 block">Admin ID <span className="text-red-400">*</span></Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                    <Input 
+                      value={adminId}
+                      onChange={(e) => setAdminId(e.target.value)}
+                      placeholder="Enter Admin ID (e.g. Aditya Saha)" 
+                      className="pl-10 bg-white/5 border-primary/30 text-white placeholder:text-gray-500 font-bold" 
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <Label className="text-gray-300 text-sm mb-1.5 block">Mobile Number <span className="text-red-400">*</span></Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                    <Input 
+                      value={mobileNumber}
+                      onChange={(e) => setMobileNumber(e.target.value)}
+                      placeholder="Enter your 10-digit mobile number" 
+                      className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" 
+                      required
+                    />
+                  </div>
+                </div>
+              )}
 
               <div>
                 <Label className="text-gray-300 text-sm mb-1.5 block">Password <span className="text-red-400">*</span></Label>

@@ -190,10 +190,15 @@ interface AppContextType {
   clearAllNotifications: () => void;
   addNotification: (title: string, message: string, type?: "info" | "success" | "warning", link?: string, category?: UserNotification["category"]) => void;
 
-  // KCC Applications for Admin
+  // KCC Applications for Admin & Dealer KCC Apply
   kccApplications: KccApplication[];
   approveKccApplication: (id: string) => void;
   rejectKccApplication: (id: string) => void;
+
+  // Dealer KCC & POS Features
+  dealerApplyFarmerKcc: (appData: Omit<KccApplication, "id" | "status" | "createdAt">) => void;
+  checkFarmerCardBalance: (cardNumber: string) => { exists: boolean; cardHolder?: string; balance?: number; status?: string } | null;
+  chargeFarmerCard: (cardNumber: string, amount: number, itemDesc: string) => { success: boolean; message: string; remainingBalance?: number };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -773,6 +778,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const kccApplicationStatus = kccDetails ? kccDetails.status : "none";
   const hasAppliedKcc = isKccIssued || kccApplications.length > 0;
 
+  // Dealer Features Implementation
+  const [farmerCardStore, setFarmerCardStore] = useState<Record<string, { cardHolder: string; balance: number; status: string }>>({
+    "KCC-BH-2026-9041": { cardHolder: "Ram Das", balance: 25000, status: "active" },
+    "KCC-BH-2026-1002": { cardHolder: "Suresh Patel", balance: 18500, status: "active" },
+    "KCC-BH-2026-1003": { cardHolder: "Anita Devi", balance: 32000, status: "active" },
+  });
+
+  const dealerApplyFarmerKcc = (appData: Omit<KccApplication, "id" | "status" | "createdAt">) => {
+    const newApp: KccApplication = {
+      ...appData,
+      id: `kcc-dealer-${Date.now()}`,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+    setKccApplications((prev) => [newApp, ...prev]);
+    addNotification(
+      "Farmer KCC Submitted",
+      `KCC Application for ${appData.fullName} submitted successfully by Dealer.`,
+      "success",
+      "/admin",
+      "kcc"
+    );
+  };
+
+  const checkFarmerCardBalance = (cardNumber: string) => {
+    const cleaned = cardNumber.trim();
+    if (farmerCardStore[cleaned]) {
+      return { exists: true, ...farmerCardStore[cleaned] };
+    }
+    // Check in kccApplications list if verified
+    const matchedApp = kccApplications.find(a => a.cardNumber === cleaned && a.status === "approved");
+    if (matchedApp) {
+      return { exists: true, cardHolder: matchedApp.fullName, balance: 20000, status: "active" };
+    }
+    return { exists: false };
+  };
+
+  const chargeFarmerCard = (cardNumber: string, amount: number, itemDesc: string) => {
+    const cleaned = cardNumber.trim();
+    const info = checkFarmerCardBalance(cleaned);
+    if (!info || !info.exists || !("balance" in info)) {
+      return { success: false, message: "Kishan Credit Card not found or not active." };
+    }
+    const currentBalance = info.balance ?? 0;
+    const holderName = info.cardHolder ?? "Farmer";
+
+    if (currentBalance < amount) {
+      return { success: false, message: `Insufficient balance on KCC. Current available limit: ₹${currentBalance}` };
+    }
+
+    const newBalance = currentBalance - amount;
+    setFarmerCardStore(prev => ({
+      ...prev,
+      [cleaned]: {
+        cardHolder: holderName,
+        balance: newBalance,
+        status: "active"
+      }
+    }));
+
+    addNotification(
+      "KCC Payment Debited",
+      `₹${amount} debited for "${itemDesc}" from Card ${cleaned} (${holderName}).`,
+      "success",
+      "/wallet",
+      "wallet"
+    );
+
+    return {
+      success: true,
+      message: `Payment of ₹${amount} debited successfully!`,
+      remainingBalance: newBalance
+    };
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -837,6 +917,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         kccApplications,
         approveKccApplication,
         rejectKccApplication,
+
+        dealerApplyFarmerKcc,
+        checkFarmerCardBalance,
+        chargeFarmerCard,
       }}
     >
       {children}

@@ -37,6 +37,17 @@ export default function DashboardPage() {
   const [ordersFilter, setOrdersFilter] = useState<"all" | "inputs" | "machinery" | "labour">("all");
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<any>(null);
 
+  // Dealer Dashboard Timeframe Analytics state
+  const [dealerTimeframe, setDealerTimeframe] = useState<"1day" | "weekly" | "monthly" | "quarterly" | "yearly">("monthly");
+
+  const DEALER_ANALYTICS: Record<string, { income: string; orders: number; sales: string; growth: string }> = {
+    "1day": { income: "₹18,450", orders: 14, sales: "₹42,800", growth: "+4.2% vs yesterday" },
+    "weekly": { income: "₹1,24,500", orders: 86, sales: "₹3,10,000", growth: "+8.5% vs last week" },
+    "monthly": { income: "₹5,42,000", orders: 342, sales: "₹14,20,000", growth: "+14.2% vs last month" },
+    "quarterly": { income: "₹16,80,000", orders: 1050, sales: "₹45,60,000", growth: "+18.1% vs Q1" },
+    "yearly": { income: "₹68,50,000", orders: 4200, sales: "₹1,85,000,00", growth: "+22.4% YoY" },
+  };
+
   const unreadNotifCount = notifications.filter((n) => !n.read).length;
 
   const SIDEBAR_ITEMS = [
@@ -443,7 +454,96 @@ export default function DashboardPage() {
         {/* DASHBOARD CONTENT BODY */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
           
-          {/* Top Row Overview Cards */}
+          {/* === DEALER SPECIAL TOP DASHBOARD ANALYTICS BAR === */}
+          {user?.role === "dealer" && (
+            <div className="bg-linear-to-r from-[#121212] via-[#1a251a] to-[#121212] border border-primary/30 rounded-2xl p-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-5 border-b border-white/10 pb-4">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/20 text-primary border border-primary/30 mb-1">
+                    <CheckCircle2 className="h-3 w-3" /> VERIFIED DEALER PANEL
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                    Dealer Business Analytics
+                  </h2>
+                  <p className="text-xs text-gray-400">Track total income, orders, and sales performance</p>
+                </div>
+
+                {/* Timeframe Filter Selector */}
+                <div className="flex items-center gap-1 bg-black/60 p-1 border border-white/10 rounded-xl overflow-x-auto max-w-full">
+                  {[
+                    { key: "1day", label: "1 Day" },
+                    { key: "weekly", label: "Weekly" },
+                    { key: "monthly", label: "Monthly" },
+                    { key: "quarterly", label: "Quarterly" },
+                    { key: "yearly", label: "Yearly" },
+                  ].map((tf) => (
+                    <button
+                      key={tf.key}
+                      onClick={() => setDealerTimeframe(tf.key as any)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        dealerTimeframe === tf.key
+                          ? "bg-primary text-black shadow-md shadow-primary/20"
+                          : "text-gray-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      {tf.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3 Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Total Income */}
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-gray-400 font-semibold mb-1">Total Income</div>
+                    <div className="text-2xl font-black text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                      {DEALER_ANALYTICS[dealerTimeframe].income}
+                    </div>
+                    <div className="text-[10px] text-emerald-400 font-semibold mt-1">
+                      {DEALER_ANALYTICS[dealerTimeframe].growth}
+                    </div>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                    <TrendingUp className="h-5 w-5" />
+                  </div>
+                </div>
+
+                {/* Total Orders */}
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-gray-400 font-semibold mb-1">Total Orders</div>
+                    <div className="text-2xl font-black text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                      {DEALER_ANALYTICS[dealerTimeframe].orders}
+                    </div>
+                    <div className="text-[10px] text-primary font-semibold mt-1">
+                      Fulfilled & Delivered
+                    </div>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                    <ShoppingCart className="h-5 w-5" />
+                  </div>
+                </div>
+
+                {/* Total Sales */}
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-gray-400 font-semibold mb-1">Total Sales Revenue</div>
+                    <div className="text-2xl font-black text-amber-400" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                      {DEALER_ANALYTICS[dealerTimeframe].sales}
+                    </div>
+                    <div className="text-[10px] text-amber-300 font-semibold mt-1">
+                      Fertilizer & Machine Fleet
+                    </div>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                    <Wallet className="h-5 w-5" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             
             {/* Wallet Balance Card */}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Shield, LogOut, Package, Users, MessageSquare, TrendingUp, CreditCard,
-  CheckCircle, XCircle, Clock, Plus, Trash2, Edit2, Save, X, Tractor
+  CheckCircle, XCircle, Clock, Plus, Trash2, Edit2, Save, X, Tractor, Bell, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { useApp } from "@/context/AppContext.tsx";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 import type { MandiRate } from "@/context/AppContext.tsx";
 
-type Tab = "crops" | "machinery" | "labour" | "expert" | "mandi" | "kcc" | "labourTypes";
+type Tab = "crops" | "machinery" | "labour" | "expert" | "mandi" | "kcc" | "labourTypes" | "notifications";
 
 export default function AdminDashboard() {
   const {
@@ -23,7 +24,7 @@ export default function AdminDashboard() {
     mandiRates, addMandiRate, updateMandiRate, deleteMandiRate,
     labourTypes, addLabourType, removeLabourType,
     kccApplications, approveKccApplication, rejectKccApplication,
-    toggleKccDemoStatus, isKccIssued,
+    toggleKccDemoStatus, isKccIssued, notifications, markNotificationAsRead, deleteNotification
   } = useApp();
 
   const [tab, setTab] = useState<Tab>("crops");
@@ -40,6 +41,7 @@ export default function AdminDashboard() {
     setAssignForm(f => ({ ...f, [id]: val }));
 
   const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: "notifications", label: "Global Activity Log", icon: Bell },
     { id: "crops", label: "Crop Listings", icon: Package },
     { id: "machinery", label: "Machinery Booking", icon: Tractor },
     { id: "labour", label: "Labour Requests", icon: Users },
@@ -416,6 +418,57 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* GLOBAL ACTIVITY LOG & NOTIFICATIONS */}
+          {tab === "notifications" && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white">Global Farmer & Dealer Activity Feed</h2>
+                  <p className="text-xs text-gray-400">Real-time alerts and activity history across all panels</p>
+                </div>
+                <Badge className="bg-primary/20 text-primary border-primary/30">
+                  {notifications.length} Total System Alerts
+                </Badge>
+              </div>
+
+              {notifications.length === 0 ? (
+                <div className="bg-[#111] border border-white/10 rounded-xl p-8 text-center text-gray-500 text-sm">
+                  No notifications recorded yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {notifications.map((n) => (
+                    <div key={n.id} className="bg-[#111] border border-white/10 rounded-xl p-4 flex items-center justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-primary">
+                          <Bell className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-sm text-white">{n.title}</h3>
+                            <Badge className="text-[10px] bg-white/5 border-white/10 text-gray-400 capitalize">{n.category || "General"}</Badge>
+                          </div>
+                          <p className="text-xs text-gray-300 mt-0.5">{n.message}</p>
+                          <span className="text-[10px] text-gray-500 mt-1 block">{n.time}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {n.link && (
+                          <Link to={n.link} className="flex items-center gap-1 text-xs text-primary hover:underline bg-primary/10 border border-primary/20 rounded-lg px-2.5 py-1.5 font-bold">
+                            View <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => deleteNotification(n.id)} className="text-xs text-red-400 hover:text-red-300 border border-red-500/20 h-8">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </main>
       </div>
     </div>
