@@ -83,6 +83,30 @@ export interface UserProfile {
   businessName?: string;
   dealerType?: string;
   occupation?: string;
+  pincode?: string;
+  aadhaarNumber?: string;
+  aadhaarFront?: string;
+  aadhaarBack?: string;
+  bankHolder?: string;
+  bankName?: string;
+  bankAccount?: string;
+  bankIfsc?: string;
+  bankAddress?: string;
+  verificationStatus?: "Pending" | "Verified";
+  createdAt: string;
+}
+
+export interface MachineryBookingRequest {
+  id: string;
+  userName: string;
+  phone: string;
+  machineryType: string;
+  bookingDate: string;
+  durationHours: string | number;
+  location: string;
+  status: "pending" | "allotted" | "rejected";
+  allottedMachineDetails?: string;
+  adminNotes?: string;
   createdAt: string;
 }
 
@@ -94,7 +118,7 @@ export interface UserNotification {
   read: boolean;
   type?: "info" | "success" | "warning";
   link?: string;
-  category?: "crops" | "labour" | "expert" | "wallet" | "kcc" | "account" | "mandi";
+  category?: "crops" | "labour" | "expert" | "wallet" | "kcc" | "account" | "mandi" | "machinery";
 }
 
 interface AppContextType {
@@ -105,6 +129,7 @@ interface AppContextType {
 
   // KCC Gatekeeper
   isKccIssued: boolean;
+  hasAppliedKcc: boolean;
   kccApplicationStatus: "none" | "pending" | "approved" | "rejected";
   kccDetails: KccApplication | null;
   isKccAlertOpen: boolean;
@@ -125,6 +150,12 @@ interface AppContextType {
   addCropListing: (listing: Omit<CropListing, "id" | "status" | "createdAt">) => void;
   approveCropListing: (id: string) => void;
   rejectCropListing: (id: string) => void;
+
+  // Machinery Booking
+  machineryBookings: MachineryBookingRequest[];
+  addMachineryBooking: (booking: Omit<MachineryBookingRequest, "id" | "status" | "createdAt">) => void;
+  allotMachineryBooking: (id: string, machineDetails: string, notes?: string) => void;
+  rejectMachineryBooking: (id: string) => void;
 
   // Labour Booking & Admin Labour Types
   labourTypes: string[];
@@ -149,6 +180,7 @@ interface AppContextType {
   user: UserProfile | null;
   loginUser: (profileData: Omit<UserProfile, "id" | "createdAt">) => void;
   logoutUser: () => void;
+  updateUserProfile: (updated: Partial<UserProfile>) => void;
 
   // User Notifications
   notifications: UserNotification[];
@@ -382,19 +414,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const rejectCropListing = (id: string) => {
-    const listing = cropListings.find(c => c.id === id);
     setCropListings((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: "rejected" } : item))
     );
-    if (listing) {
-      addNotification(
-        "Crop Listing Rejected ❌",
-        `Your listing "${listing.cropName}" was not approved. Please check and resubmit.`,
-        "warning",
-        "/sell-crops",
-        "crops"
-      );
-    }
+  };
+
+  // Machinery Booking State
+  const [machineryBookings, setMachineryBookings] = useState<MachineryBookingRequest[]>(() => {
+    const saved = localStorage.getItem("krivexa_machinery_bookings");
+    return saved ? JSON.parse(saved) : [
+      {
+        id: "mach-101",
+        userName: "Ram Das",
+        phone: "8906554583",
+        machineryType: "Tractor (45 HP)",
+        bookingDate: "2026-08-28",
+        durationHours: 4,
+        location: "Rajpur, Varanasi",
+        status: "pending",
+        createdAt: new Date().toISOString(),
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("krivexa_machinery_bookings", JSON.stringify(machineryBookings));
+  }, [machineryBookings]);
+
+  const addMachineryBooking = (booking: Omit<MachineryBookingRequest, "id" | "status" | "createdAt">) => {
+    const newBooking: MachineryBookingRequest = {
+      ...booking,
+      id: `mach-${Date.now()}`,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+    setMachineryBookings((prev) => [newBooking, ...prev]);
+    addNotification(
+      "Machinery Booking Request Sent 🚜",
+      `Your booking request for ${booking.machineryType} on ${booking.bookingDate} has been sent to admin for allotment.`,
+      "info",
+      "/machinery-booking",
+      "machinery"
+    );
+  };
+
+  const allotMachineryBooking = (id: string, machineDetails: string, notes?: string) => {
+    const target = machineryBookings.find(m => m.id === id);
+    setMachineryBookings((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, status: "allotted", allottedMachineDetails: machineDetails, adminNotes: notes }
+          : item
+      )
+    );
+    addNotification(
+      "Machinery Allotted! 🚜",
+      `Your requested machine (${target?.machineryType || "Machinery"}) has been allotted by Admin: ${machineDetails}.`,
+      "success",
+      "/machinery-booking",
+      "machinery"
+    );
+  };
+
+  const rejectMachineryBooking = (id: string) => {
+    const target = machineryBookings.find(m => m.id === id);
+    setMachineryBookings((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, status: "rejected" } : item))
+    );
+    addNotification(
+      "Machinery Request Declined ❌",
+      `Your booking request for ${target?.machineryType || "Machinery"} could not be fulfilled at this time.`,
+      "warning",
+      "/machinery-booking",
+      "machinery"
+    );
   };
 
   // Labour Booking & Types State
@@ -548,7 +641,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // User Profile Session State
   const [user, setUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem("krivexa_user_profile");
-    return saved ? JSON.parse(saved) : null;
+    if (saved) return JSON.parse(saved);
+    return {
+      id: "usr-890655",
+      name: "Ram Das",
+      phone: "8906554583",
+      role: "farmer",
+      state: "Uttar pardesh",
+      district: "Vanarasi",
+      village: "Rajpur",
+      pincode: "700101",
+      verificationStatus: "Pending",
+      aadhaarNumber: "Not set",
+      aadhaarFront: "No file uploaded yet",
+      aadhaarBack: "No file uploaded yet",
+      bankHolder: "Not set",
+      bankName: "Not set",
+      bankAccount: "Not set",
+      bankIfsc: "Not set",
+      bankAddress: "Not set",
+      createdAt: new Date().toISOString(),
+    };
   });
 
   const [notifications, setNotifications] = useState<UserNotification[]>(() => {
@@ -620,6 +733,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem("krivexa_user_profile");
   };
 
+  const updateUserProfile = (updated: Partial<UserProfile>) => {
+    setUser((prev) => (prev ? { ...prev, ...updated } : null));
+  };
+
   const addNotification = (title: string, message: string, type: "info" | "success" | "warning" = "info", link?: string, category?: UserNotification["category"]) => {
     const newNotif: UserNotification = {
       id: `notif-${Date.now()}`,
@@ -654,6 +771,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const kccDetails = kccApplications.length > 0 ? kccApplications[0] : null;
   const kccApplicationStatus = kccDetails ? kccDetails.status : "none";
+  const hasAppliedKcc = isKccIssued || kccApplications.length > 0;
 
   return (
     <AppContext.Provider
@@ -663,6 +781,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         t,
 
         isKccIssued,
+        hasAppliedKcc,
         kccApplicationStatus,
         kccDetails,
         isKccAlertOpen,
@@ -681,6 +800,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addCropListing,
         approveCropListing,
         rejectCropListing,
+
+        machineryBookings,
+        addMachineryBooking,
+        allotMachineryBooking,
+        rejectMachineryBooking,
 
         labourTypes,
         addLabourType,
@@ -701,6 +825,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         user,
         loginUser,
         logoutUser,
+        updateUserProfile,
 
         notifications,
         markNotificationAsRead,

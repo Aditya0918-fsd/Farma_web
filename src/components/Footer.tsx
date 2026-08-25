@@ -4,26 +4,35 @@ import { useApp } from "@/context/AppContext.tsx";
 
 export default function Footer() {
   const year = new Date().getFullYear();
-  const { t, setIsKccAppModalOpen } = useApp();
+  const { t, setIsKccAppModalOpen, hasAppliedKcc } = useApp();
 
   const QUICK_LINKS = [
-    { label: t.nav.home, href: "/" },
-    { label: t.nav.mandiBhav, href: "/mandi-bhav" },
-    { label: t.nav.buyInputs, href: "/agri-market" },
-    { label: t.nav.sellCrops, href: "/sell-crops" },
-    { label: t.nav.labourBooking, href: "/labour-booking" },
-    { label: t.nav.expertAdvice, href: "/expert-advice" },
-    { label: t.nav.aboutUs, href: "/about" },
+    { label: "Home", href: "/" },
+    { label: "Mandi Bhav", href: "/mandi-bhav" },
+    { label: "Buy Inputs", href: "/agri-market" },
+    { label: "Sell Crops", href: "/sell-crops" },
+    { label: "Machinery Booking", href: "/machinery-booking" },
+    { label: "Labour Booking", href: "/labour-booking" },
+    { label: "Expert Advice", href: "/expert-advice" },
   ];
 
-  const SERVICE_LINKS = [
-    { label: t.nav.mandiBhav, href: "/mandi-bhav" },
-    { label: t.nav.buyInputs, href: "/agri-market" },
-    { label: t.nav.sellCrops, href: "/sell-crops" },
-    { label: t.nav.labourBooking, href: "/labour-booking" },
-    { label: t.nav.expertAdvice, href: "/expert-advice" },
-    { label: t.nav.weather, href: "/weather" },
-    { label: t.nav.wallet, href: "/wallet" },
+  const RESOURCES_LINKS = [
+    { label: "Blog", href: "/blog" },
+    { label: "Crop Calendar", href: "/crop-calendar" },
+    { label: "Government Schemes", href: "/government-schemes" },
+    { label: "Weather News", href: "/weather" },
+    { label: "Farming Tips", href: "/farming-tips" },
+    { label: "Help Center", href: "/help-center" },
+  ];
+
+  const SERVICES_LINKS = [
+    { label: "Mandi Bhav", href: "/mandi-bhav" },
+    { label: "Buy Inputs", href: "/agri-market" },
+    { label: "Sell Crops", href: "/sell-crops" },
+    { label: "Machinery Booking", href: "/machinery-booking" },
+    { label: "Soil Testing", href: "/soil-testing" },
+    { label: "Weather Update", href: "/weather" },
+    { label: "Kisan Wallet", href: "/wallet" },
   ];
 
   return (
@@ -33,21 +42,24 @@ export default function Footer() {
       <div className="absolute top-0 left-1/4 right-1/4 h-12 bg-primary/5 blur-2xl" />
 
       <div className="bg-linear-to-b from-[#0c0c0c] to-[#080808] relative">
-        {/* KCC CTA Banner inside footer */}
-        <div
-          className="flex items-center justify-center gap-3 py-5 px-4 bg-linear-to-r from-amber-900/40 via-amber-800/30 to-amber-900/40 border-b border-amber-500/20 cursor-pointer group"
-          onClick={() => setIsKccAppModalOpen(true)}
-        >
-          <CreditCard className="h-5 w-5 text-amber-400 shrink-0" />
-          <div className="text-center">
-            <p className="text-amber-300 font-bold text-sm">{t.nav.applyKcc}</p>
-            <p className="text-amber-500/80 text-xs">Get instant credit & unlock all platform features</p>
+        {/* KCC CTA Banner inside footer (Hidden once applied) */}
+        {!hasAppliedKcc && (
+          <div
+            className="flex items-center justify-center gap-3 py-5 px-4 bg-linear-to-r from-amber-900/40 via-amber-800/30 to-amber-900/40 border-b border-amber-500/20 cursor-pointer group"
+            onClick={() => setIsKccAppModalOpen(true)}
+          >
+            <CreditCard className="h-5 w-5 text-amber-400 shrink-0" />
+            <div className="text-center">
+              <p className="text-amber-300 font-bold text-sm">{t.nav.applyKcc}</p>
+              <p className="text-amber-500/80 text-xs">Get instant credit & unlock all platform features</p>
+            </div>
+            <span className="text-amber-400 font-bold text-sm group-hover:translate-x-1 transition-transform">→</span>
           </div>
-          <span className="text-amber-400 font-bold text-sm group-hover:translate-x-1 transition-transform">→</span>
-        </div>
+        )}
 
         <div className="max-w-7xl mx-auto px-4 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-8">
+            
             {/* Brand */}
             <div className="lg:col-span-2">
               <div className="flex items-center gap-2 mb-3">
@@ -82,13 +94,13 @@ export default function Footer() {
               </div>
             </div>
 
-            {/* Quick Links */}
-            <div>
-              <h4 className="text-white font-semibold mb-4 flex items-center gap-2">
+            {/* 1. Quick Links */}
+            <div className="lg:col-span-1">
+              <h4 className="text-white font-semibold mb-4 flex items-center gap-2 text-sm">
                 <span className="w-1 h-4 bg-primary rounded-full inline-block" />
-                {t.footer.quickLinks}
+                Quick Links
               </h4>
-              <ul className="space-y-2 text-gray-400">
+              <ul className="space-y-2 text-gray-400 text-xs">
                 {QUICK_LINKS.map((item) => (
                   <li key={item.label}>
                     <Link to={item.href} className="hover:text-primary transition-colors hover:pl-1 inline-block">
@@ -99,14 +111,31 @@ export default function Footer() {
               </ul>
             </div>
 
-            {/* Services */}
-            <div>
-              <h4 className="text-white font-semibold mb-4 flex items-center gap-2">
+            {/* 2. Resources */}
+            <div className="lg:col-span-1">
+              <h4 className="text-white font-semibold mb-4 flex items-center gap-2 text-sm">
                 <span className="w-1 h-4 bg-primary rounded-full inline-block" />
-                {t.footer.services}
+                Resources
               </h4>
-              <ul className="space-y-2 text-gray-400">
-                {SERVICE_LINKS.map((item) => (
+              <ul className="space-y-2 text-gray-400 text-xs">
+                {RESOURCES_LINKS.map((item) => (
+                  <li key={item.label}>
+                    <Link to={item.href} className="hover:text-primary transition-colors hover:pl-1 inline-block">
+                      → {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* 3. Services */}
+            <div className="lg:col-span-1">
+              <h4 className="text-white font-semibold mb-4 flex items-center gap-2 text-sm">
+                <span className="w-1 h-4 bg-primary rounded-full inline-block" />
+                Services
+              </h4>
+              <ul className="space-y-2 text-gray-400 text-xs">
+                {SERVICES_LINKS.map((item) => (
                   <li key={item.label}>
                     <Link to={item.href} className="hover:text-primary transition-colors hover:pl-1 inline-block">
                       → {item.label}
@@ -117,12 +146,12 @@ export default function Footer() {
             </div>
 
             {/* Contact & App */}
-            <div>
-              <h4 className="text-white font-semibold mb-4 flex items-center gap-2">
+            <div className="lg:col-span-1">
+              <h4 className="text-white font-semibold mb-4 flex items-center gap-2 text-sm">
                 <span className="w-1 h-4 bg-primary rounded-full inline-block" />
-                {t.footer.contactUs}
+                Contact Us
               </h4>
-              <ul className="space-y-3 text-gray-400">
+              <ul className="space-y-2.5 text-gray-400 text-xs">
                 <li className="flex items-center gap-2">
                   <Phone className="h-3.5 w-3.5 text-primary shrink-0" />
                   <span>+91 87087 42170</span>
@@ -140,19 +169,8 @@ export default function Footer() {
                   <span>{t.footer.address}</span>
                 </li>
               </ul>
-
-              <div className="mt-4">
-                <p className="text-gray-500 text-xs mb-2">{t.footer.downloadApp}</p>
-                <div className="flex flex-col gap-2">
-                  <a href="#" className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 text-xs text-white hover:border-primary hover:bg-primary/10 transition-colors flex items-center gap-2">
-                    <span>📱</span> Google Play
-                  </a>
-                  <a href="#" className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 text-xs text-white hover:border-primary hover:bg-primary/10 transition-colors flex items-center gap-2">
-                    <span>🍎</span> App Store
-                  </a>
-                </div>
-              </div>
             </div>
+
           </div>
         </div>
 

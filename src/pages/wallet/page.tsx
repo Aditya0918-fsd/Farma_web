@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Wallet, Plus, ArrowUpRight, ArrowDownRight, ArrowRight, Shield, Eye, EyeOff } from "lucide-react";
+import { Wallet, Plus, ArrowUpRight, ArrowDownRight, ArrowRight, Shield, Eye, EyeOff, CreditCard, Clock, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -20,13 +20,21 @@ const TRANSACTIONS = [
 ];
 
 export default function WalletPage() {
-  const { t } = useApp();
+  const { t, user, kccApplicationStatus, kccDetails, hasAppliedKcc, setIsKccAppModalOpen } = useApp();
   const [showBalance, setShowBalance] = useState(true);
   const [addAmount, setAddAmount] = useState("");
 
   const balance = 4250;
   const totalIn = TRANSACTIONS.filter((t) => t.type === "credit").reduce((s, t) => s + t.amount, 0);
   const totalOut = TRANSACTIONS.filter((t) => t.type === "debit").reduce((s, t) => s + t.amount, 0);
+
+  // KCC card number logic
+  const isKccApproved = kccApplicationStatus === "approved";
+  const kccCardNumber = isKccApproved && kccDetails?.cardNumber
+    ? kccDetails.cardNumber
+    : null;
+  const kccHolderName = kccDetails?.fullName || user?.name || "KRIVEXA KISAN";
+  const kccIssueDate = kccDetails?.issueDate || null;
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
@@ -45,26 +53,63 @@ export default function WalletPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
+
+        {/* === WALLET BALANCE & TRANSACTIONS === */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Wallet Card */}
+          {/* Wallet Card / KCC Card */}
           <div className="space-y-4">
-            <div className="bg-linear-to-br from-[#0f2a0f] to-[#1a3a1a] border border-primary/30 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-sm text-gray-300">
-                  <Wallet className="h-4 w-4 text-primary" />
-                  Krivexa Wallet
+            {/* Real KCC Card in Wallet Box */}
+            <div className="relative w-full overflow-hidden rounded-2xl border border-amber-500/30 shadow-2xl bg-[#111]">
+              <img
+                src="/KCC.png"
+                alt="Kishan Credit Card"
+                className="w-full h-auto object-cover"
+              />
+
+              {/* Wallet Balance Overlay (Top Right) */}
+              <div className="absolute top-3 right-3 bg-black/75 backdrop-blur-md border border-primary/40 rounded-xl px-3 py-1.5 flex items-center gap-2">
+                <div>
+                  <div className="text-[10px] text-gray-400 font-bold uppercase">Balance</div>
+                  <div className="text-sm sm:text-base font-black text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                    {showBalance ? `₹${balance.toLocaleString()}.00` : "₹ ****"}
+                  </div>
                 </div>
-                <button onClick={() => setShowBalance(!showBalance)} className="text-gray-500 hover:text-primary cursor-pointer">
-                  {showBalance ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                <button onClick={() => setShowBalance(!showBalance)} className="text-gray-400 hover:text-primary cursor-pointer ml-1">
+                  {showBalance ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                 </button>
               </div>
-              <div className="text-4xl font-black text-primary my-3" style={{ fontFamily: "Rajdhani, sans-serif" }}>
-                {showBalance ? `₹${balance.toLocaleString()}.00` : "₹ ****"}
+
+              {/* Overlay: Card Number in Blank Space */}
+              <div className="absolute left-[5.5%] top-[56%] w-[88%] flex items-center">
+                <div
+                  className="text-[#f5d77f] font-black tracking-[0.14em] leading-none drop-shadow-md truncate"
+                  style={{
+                    fontFamily: "Rajdhani, monospace",
+                    fontSize: "clamp(0.65rem, 2.2vw, 1rem)",
+                    textShadow: "0 2px 8px rgba(0,0,0,0.9)",
+                  }}
+                >
+                  {hasAppliedKcc
+                    ? (isKccApproved ? kccCardNumber : "Will be generated after verification")
+                    : "Apply KCC to Generate Card"}
+                </div>
               </div>
-              <div className="flex items-center gap-1 text-xs text-gray-400">
-                <Shield className="h-3 w-3 text-primary" />
-                {t.wallet.secured}
-              </div>
+
+              {/* Overlay: Holder Name */}
+              {hasAppliedKcc && (
+                <div className="absolute left-[5.5%] top-[72%] w-[88%] flex items-center">
+                  <div
+                    className="text-[#f5d77f] font-black uppercase tracking-[0.12em] leading-none drop-shadow-md truncate"
+                    style={{
+                      fontFamily: "Rajdhani, sans-serif",
+                      fontSize: "clamp(0.55rem, 1.8vw, 0.8rem)",
+                      textShadow: "0 2px 6px rgba(0,0,0,0.9)",
+                    }}
+                  >
+                    {kccHolderName}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Stats */}

@@ -1,24 +1,58 @@
 import { useState } from "react";
-import { Tractor, Calendar, MapPin, Clock, CheckCircle, Star } from "lucide-react";
+import { Tractor, Calendar, MapPin, Clock, CheckCircle, User, Phone, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
 import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
+import { useApp } from "@/context/AppContext.tsx";
 import { toast } from "sonner";
 
-const MACHINERY = [
-  { name: "Tractor (45 HP)", price: "₹800/hr", availability: "Available", rating: 4.8, img: "https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?w=300&q=80" },
-  { name: "Rotavator", price: "₹600/hr", availability: "Available", rating: 4.7, img: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=300&q=80" },
-  { name: "Harvester (Combine)", price: "₹1500/hr", availability: "Booked", rating: 4.9, img: "https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=300&q=80" },
-  { name: "Power Tiller", price: "₹400/hr", availability: "Available", rating: 4.6, img: "https://images.unsplash.com/photo-1573156782454-9c8c99c4be21?w=300&q=80" },
-  { name: "Seed Drill", price: "₹500/hr", availability: "Available", rating: 4.5, img: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=300&q=80" },
-  { name: "Sprayer (Boom)", price: "₹350/hr", availability: "Available", rating: 4.7, img: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=300&q=80" },
+const MACHINERY_OPTIONS = [
+  "Tractor (45 HP)",
+  "Rotavator",
+  "Harvester (Combine)",
+  "Power Tiller",
+  "Seed Drill",
+  "Sprayer (Boom)",
 ];
 
 export default function MachineryBookingPage() {
-  const [selected, setSelected] = useState<string | null>(null);
+  const { user, machineryBookings, addMachineryBooking } = useApp();
+
+  const [selectedMachine, setSelectedMachine] = useState<string>("Tractor (45 HP)");
+  const [userName, setUserName] = useState(user?.name || "Ram Das");
+  const [phone, setPhone] = useState(user?.phone || "8906554583");
+  const [bookingDate, setBookingDate] = useState(() => {
+    const today = new Date();
+    today.setDate(today.getDate() + 1);
+    return today.toISOString().split("T")[0];
+  });
+  const [durationHours, setDurationHours] = useState("4");
+  const [location, setLocation] = useState(() => {
+    if (user?.village && user?.district) return `${user.village}, ${user.district}`;
+    return "Rajpur, Varanasi";
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userName.trim() || !phone.trim() || !location.trim()) {
+      toast.error("Please fill in all required booking details.");
+      return;
+    }
+
+    addMachineryBooking({
+      userName,
+      phone,
+      machineryType: selectedMachine,
+      bookingDate,
+      durationHours: Number(durationHours) || 4,
+      location,
+    });
+
+    toast.success("Machinery booking request submitted! Admin will allot machine soon.");
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
@@ -37,82 +71,179 @@ export default function MachineryBookingPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
-          {MACHINERY.map((m) => (
-            <div key={m.name} className={`bg-[#111] border rounded-2xl overflow-hidden transition-all cursor-pointer ${selected === m.name ? "border-primary" : "border-white/10 hover:border-primary/40"}`}
-              onClick={() => m.availability === "Available" ? setSelected(m.name) : null}>
-              <div className="relative h-44 overflow-hidden">
-                <img src={m.img} alt={m.name} className="w-full h-full object-cover" />
-                <div className={`absolute top-2 right-2 text-xs font-semibold px-2 py-1 rounded-full ${m.availability === "Available" ? "bg-primary/20 text-primary border border-primary/30" : "bg-red-500/20 text-red-400 border border-red-500/30"}`}>
-                  {m.availability}
-                </div>
-                {selected === m.name && (
-                  <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                    <CheckCircle className="h-10 w-10 text-primary" />
-                  </div>
-                )}
+        {/* Booking Form & User Requests Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* Booking Form */}
+          <div className="lg:col-span-6 bg-[#111] border border-white/10 rounded-2xl p-6 h-fit">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+                <Tractor className="h-5 w-5 text-primary" />
               </div>
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="font-bold">{m.name}</h3>
-                  <div className="flex items-center gap-1 text-xs">
-                    <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
-                    <span>{m.rating}</span>
-                  </div>
-                </div>
-                <div className="text-primary font-bold" style={{ fontFamily: "Rajdhani, sans-serif" }}>{m.price}</div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Fill Booking Details</h2>
+                <p className="text-xs text-gray-400">Admin will allot the nearest machine to your location</p>
               </div>
             </div>
-          ))}
-        </div>
 
-        {/* Booking Form */}
-        <div className="max-w-xl mx-auto bg-[#111] border border-white/10 rounded-2xl p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <Tractor className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-bold">Book Machinery</h2>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div>
+                <Label className="text-gray-300 text-xs mb-1.5 block">Selected Equipment</Label>
+                <Select value={selectedMachine} onValueChange={setSelectedMachine}>
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white font-medium">
+                    <SelectValue placeholder="Choose machinery" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a1a] border-white/10 text-white">
+                    {MACHINERY_OPTIONS.map((name) => (
+                      <SelectItem key={name} value={name}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-300 text-xs mb-1.5 block">Your Name</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                    <Input
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      placeholder="Enter full name"
+                      className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-gray-300 text-xs mb-1.5 block">Mobile Number</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                    <Input
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="Enter 10-digit mobile"
+                      className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-300 text-xs mb-1.5 block">Required Date</Label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                    <Input
+                      type="date"
+                      value={bookingDate}
+                      onChange={(e) => setBookingDate(e.target.value)}
+                      className="pl-10 bg-white/5 border-white/10 text-white"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-gray-300 text-xs mb-1.5 block">Duration (hours)</Label>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                    <Input
+                      type="number"
+                      value={durationHours}
+                      onChange={(e) => setDurationHours(e.target.value)}
+                      placeholder="e.g. 4"
+                      className="pl-10 bg-white/5 border-white/10 text-white"
+                      min="1"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-gray-300 text-xs mb-1.5 block">Field Location / Village</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  <Input
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="Enter village, district, landmark"
+                    className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600"
+                    required
+                  />
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full bg-primary text-black font-bold py-5 text-base hover:bg-primary/90 rounded-xl">
+                Submit Booking Request →
+              </Button>
+            </form>
           </div>
-          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); toast.success("Machinery booked successfully!"); }}>
-            <div>
-              <Label className="text-gray-300 text-sm mb-1.5 block">Select Machinery</Label>
-              <Select>
-                <SelectTrigger className="bg-white/5 border-white/10 text-gray-300">
-                  <SelectValue placeholder={selected ?? "Choose machinery"} />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-white/10">
-                  {MACHINERY.filter((m) => m.availability === "Available").map((m) => (
-                    <SelectItem key={m.name} value={m.name}>{m.name} — {m.price}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+          {/* User's Machinery Booking Requests Status */}
+          <div className="lg:col-span-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" /> My Machinery Bookings & Allotments
+              </h2>
+              <span className="text-xs text-gray-400">{machineryBookings.length} Total</span>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-gray-300 text-sm mb-1.5 block">Booking Date</Label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                  <Input type="date" className="pl-10 bg-white/5 border-white/10 text-white" />
-                </div>
+
+            {machineryBookings.length === 0 ? (
+              <div className="bg-[#111] border border-white/10 rounded-2xl p-8 text-center text-gray-500">
+                <Tractor className="h-10 w-10 text-gray-600 mx-auto mb-2" />
+                <p className="text-sm font-semibold">No active machinery bookings yet.</p>
+                <p className="text-xs text-gray-600 mt-1">Fill out the form on the left to request a machine allotment.</p>
               </div>
-              <div>
-                <Label className="text-gray-300 text-sm mb-1.5 block">Duration (hours)</Label>
-                <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                  <Input type="number" placeholder="e.g. 4" className="pl-10 bg-white/5 border-white/10 text-white" min="1" />
-                </div>
+            ) : (
+              <div className="space-y-3">
+                {machineryBookings.map((b) => (
+                  <div key={b.id} className="bg-[#111] border border-white/10 rounded-2xl p-5 hover:border-primary/30 transition-colors">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div>
+                        <h3 className="font-bold text-base text-white">{b.machineryType}</h3>
+                        <p className="text-xs text-gray-400">{b.userName} · {b.phone}</p>
+                      </div>
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-bold border ${
+                        b.status === "allotted"
+                          ? "bg-primary/10 text-primary border-primary/30"
+                          : b.status === "rejected"
+                          ? "bg-red-500/10 text-red-400 border-red-500/30"
+                          : "bg-amber-500/10 text-amber-400 border-amber-500/30 animate-pulse"
+                      }`}>
+                        {b.status === "allotted" ? "✓ Machine Allotted" : b.status === "rejected" ? "Cancelled" : "Pending Allotment"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-300 bg-white/5 p-3 rounded-xl mb-3">
+                      <div><span className="text-gray-500">Date:</span> {b.bookingDate}</div>
+                      <div><span className="text-gray-500">Duration:</span> {b.durationHours} Hours</div>
+                      <div className="col-span-2"><span className="text-gray-500">Location:</span> {b.location}</div>
+                    </div>
+
+                    {b.status === "allotted" && b.allottedMachineDetails && (
+                      <div className="p-3 bg-primary/10 border border-primary/30 rounded-xl text-xs text-primary flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold">Allotment Details from Admin:</p>
+                          <p className="text-white font-medium mt-0.5">{b.allottedMachineDetails}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {b.status === "pending" && (
+                      <p className="text-[11px] text-amber-400/80 flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" /> Your request is in queue. Admin will assign a machine and notify you shortly.
+                      </p>
+                    )}
+                  </div>
+                ))}
               </div>
-            </div>
-            <div>
-              <Label className="text-gray-300 text-sm mb-1.5 block">Location / Village</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                <Input placeholder="Enter your village/location" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
-              </div>
-            </div>
-            <Button type="submit" className="w-full bg-primary text-black font-bold py-5 text-base hover:bg-primary/90">
-              Book Now →
-            </Button>
-          </form>
+            )}
+          </div>
+
         </div>
       </div>
 

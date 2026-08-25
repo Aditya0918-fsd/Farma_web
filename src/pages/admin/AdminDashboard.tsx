@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Shield, LogOut, Package, Users, MessageSquare, TrendingUp, CreditCard,
-  CheckCircle, XCircle, Clock, Plus, Trash2, Edit2, Save, X
+  CheckCircle, XCircle, Clock, Plus, Trash2, Edit2, Save, X, Tractor
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -11,12 +11,13 @@ import { useApp } from "@/context/AppContext.tsx";
 import { toast } from "sonner";
 import type { MandiRate } from "@/context/AppContext.tsx";
 
-type Tab = "crops" | "labour" | "expert" | "mandi" | "kcc" | "labourTypes";
+type Tab = "crops" | "machinery" | "labour" | "expert" | "mandi" | "kcc" | "labourTypes";
 
 export default function AdminDashboard() {
   const {
     adminLogout,
     cropListings, approveCropListing, rejectCropListing,
+    machineryBookings, allotMachineryBooking, rejectMachineryBooking,
     labourBookings, assignLaboursToBooking,
     expertAdviceQueries, updateExpertQueryStatus,
     mandiRates, addMandiRate, updateMandiRate, deleteMandiRate,
@@ -31,6 +32,7 @@ export default function AdminDashboard() {
   const [editValues, setEditValues] = useState<Partial<MandiRate>>({});
   const [newRate, setNewRate] = useState({ name: "", hindi: "", min: "", max: "", modal: "", change: "", img: "🌾", unit: "Quintal" });
   const [assignForm, setAssignForm] = useState<{ [id: string]: { name: string; phone: string; charges: string }[] }>({});
+  const [machineryAllotForm, setMachineryAllotForm] = useState<{ [id: string]: string }>({});
 
   // Labour assignment helpers
   const getAssign = (id: string) => assignForm[id] || [{ name: "", phone: "", charges: "" }];
@@ -39,6 +41,7 @@ export default function AdminDashboard() {
 
   const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "crops", label: "Crop Listings", icon: Package },
+    { id: "machinery", label: "Machinery Booking", icon: Tractor },
     { id: "labour", label: "Labour Requests", icon: Users },
     { id: "labourTypes", label: "Labour Types", icon: Users },
     { id: "expert", label: "Expert Queries", icon: MessageSquare },
@@ -50,6 +53,7 @@ export default function AdminDashboard() {
     const map: Record<string, string> = {
       pending: "bg-amber-500/10 text-amber-400 border-amber-500/20",
       approved: "bg-primary/10 text-primary border-primary/20",
+      allotted: "bg-primary/10 text-primary border-primary/20",
       rejected: "bg-red-500/10 text-red-400 border-red-500/20",
       assigned: "bg-blue-500/10 text-blue-400 border-blue-500/20",
       resolved: "bg-primary/10 text-primary border-primary/20",
@@ -125,6 +129,77 @@ export default function AdminDashboard() {
                         </div>
                       )}
                     </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* MACHINERY BOOKINGS & ALLOTMENT */}
+          {tab === "machinery" && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">Machinery Booking Requests & Allotment</h2>
+                <span className="text-xs text-gray-400">{machineryBookings.length} Requests</span>
+              </div>
+              {machineryBookings.length === 0 && <p className="text-gray-500 text-sm">No machinery booking requests yet.</p>}
+              <div className="space-y-4">
+                {machineryBookings.map((m) => (
+                  <div key={m.id} className="bg-[#111] border border-white/10 rounded-xl p-4">
+                    <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <Tractor className="h-5 w-5 text-primary" />
+                        <h3 className="font-bold text-base text-white">{m.machineryType}</h3>
+                        <StatusBadge status={m.status} />
+                      </div>
+                      <span className="text-xs text-gray-500">Requested: {new Date(m.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-xs text-gray-300 mb-1 font-semibold">Farmer: {m.userName} ({m.phone})</p>
+                    <p className="text-xs text-gray-400 mb-3">Required Date: <span className="text-white font-medium">{m.bookingDate}</span> · Duration: <span className="text-white font-medium">{m.durationHours} Hours</span> · Location: <span className="text-white font-medium">{m.location}</span></p>
+
+                    {m.status === "pending" && (
+                      <div className="border-t border-white/10 pt-3 space-y-3">
+                        <div>
+                          <Label className="text-xs text-gray-300 font-semibold mb-1 block">Machine Allotment Details (Driver Name, Phone, Vehicle No.):</Label>
+                          <Input
+                            value={machineryAllotForm[m.id] || ""}
+                            onChange={(e) => setMachineryAllotForm({ ...machineryAllotForm, [m.id]: e.target.value })}
+                            placeholder="e.g. Mahindra Tractor BR-01-AB-1234 + Driver Ramesh (9876543210)"
+                            className="bg-white/5 border-white/10 text-white text-xs h-9"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const details = machineryAllotForm[m.id] || "Mahindra 45HP Tractor + Driver Assigned";
+                              allotMachineryBooking(m.id, details);
+                              toast.success("Machinery allotted successfully! User notified.");
+                            }}
+                            className="bg-primary text-black font-bold text-xs h-8"
+                          >
+                            <CheckCircle className="h-3.5 w-3.5 mr-1" /> Allot Machine & Notify User
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              rejectMachineryBooking(m.id);
+                              toast.error("Machinery booking rejected.");
+                            }}
+                            className="border border-red-500/20 text-red-400 text-xs h-8"
+                          >
+                            <XCircle className="h-3.5 w-3.5 mr-1" /> Reject Request
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {m.status === "allotted" && (
+                      <div className="mt-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-xs text-primary">
+                        <span className="font-bold">✓ Allotted Details:</span> {m.allottedMachineDetails}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

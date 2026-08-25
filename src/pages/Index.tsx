@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 import {
   TrendingUp, ShoppingCart, Users, MessageSquare, CloudSun, Wallet,
   ChevronRight, Star, Shield, CheckCircle, ArrowRight, Package, Leaf,
-  CreditCard, Sprout
+  CreditCard, Sprout, Tractor, FlaskConical
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import Navbar from "@/components/Navbar.tsx";
@@ -17,12 +18,127 @@ const TESTIMONIALS = [
 ];
 
 export default function Index() {
-  const { t, setIsKccAppModalOpen } = useApp();
+  const { t, user, setIsKccAppModalOpen, hasAppliedKcc } = useApp();
+
+  const [selectedFeature, setSelectedFeature] = useState<{
+    icon: any;
+    title: string;
+    desc: string;
+    badge: string;
+    href: string;
+    explanation: {
+      overview: string;
+      keyBenefits: string[];
+      howItWorks: string[];
+    };
+  } | null>(null);
+
+  const FEATURE_DETAILS: Record<string, { overview: string; keyBenefits: string[]; howItWorks: string[] }> = {
+    "Live Mandi Bhav": {
+      overview: "Live Mandi Bhav provides real-time crop market prices collected directly from major mandis across Bihar and North India. Updated daily by our admin team, it empowers farmers with accurate minimum, maximum, and modal market rates to ensure you get the best profits for your hard work.",
+      keyBenefits: [
+        "Daily updated rates from 500+ mandis",
+        "Transparency in crop pricing with min/max & modal rates",
+        "Historical trends to decide the best time to sell your harvest",
+        "Direct connection to high-paying buyers"
+      ],
+      howItWorks: [
+        "Browse commodities or search your specific crop name",
+        "View updated rates according to your nearest district mandi",
+        "Track daily price increments and plan your crop transport"
+      ]
+    },
+    "Buy Inputs": {
+      overview: "Our Buy Inputs & Crops platform is an integrated digital store where farmers can purchase certified seeds, high-grade fertilizers, pesticides, and modern farming equipment, as well as browse verified crop listings direct from fellow farmers.",
+      keyBenefits: [
+        "100% verified authentic seeds and agricultural inputs",
+        "Direct peer-to-peer buying from other local farmers",
+        "Transparent pricing with no hidden middleman fees",
+        "Doorstep delivery to your village or nearest pickup hub"
+      ],
+      howItWorks: [
+        "Filter products by category (Seeds, Fertilizers, Tools)",
+        "Select verified products or farmer-listed crops",
+        "Contact sellers directly via Phone/WhatsApp or place instant orders"
+      ]
+    },
+    "Sell Crops": {
+      overview: "Sell Crops enables farmers to list their harvested produce directly on the platform to reach verified bulk buyers, traders, and mills across the state without dealing with exploitative intermediaries.",
+      keyBenefits: [
+        "Get maximum value for your hard-earned harvest",
+        "No commission deduction — 100% earnings go to the farmer",
+        "Fast verification by Admin to broadcast listings widely",
+        "Direct buyer calls and WhatsApp negotiation"
+      ],
+      howItWorks: [
+        "Upload photos of your crop produce along with weight and asking price",
+        "Submit your listing for quick Admin approval",
+        "Interested buyers will contact you directly to close the deal"
+      ]
+    },
+    "Machinery Booking": {
+      overview: "Machinery Booking solves the high cost of equipment ownership by offering on-demand rental for tractors, rotavators, combine harvesters, power tillers, and sprayers directly to your field location.",
+      keyBenefits: [
+        "Access modern farm machinery without capital investment",
+        "Fair hourly rental rates starting as low as ₹350/hr",
+        "Nearest machine allotment coordinated by local fleet admins",
+        "Timely field work completion during peak harvesting seasons"
+      ],
+      howItWorks: [
+        "Select equipment type, required date, and duration in hours",
+        "Enter your field village location and contact number",
+        "Admin assigns the nearest machine and driver to your field"
+      ]
+    },
+    "Labour Booking": {
+      overview: "Labour Booking connects farmers facing seasonal workforce shortages with verified, skilled agricultural labour teams for harvesting, sowing, land preparation, and crop protection.",
+      keyBenefits: [
+        "Guaranteed availability of skilled agricultural workers",
+        "Admin-supervised allocation ensuring fair daily wages",
+        "Customizable team sizes and multi-day booking durations",
+        "Prevents crop loss due to harvest delay"
+      ],
+      howItWorks: [
+        "Submit a request with required number of labours & work dates",
+        "Admin matches your request with available verified worker groups",
+        "Receive assigned worker details & phone numbers directly on your dashboard"
+      ]
+    },
+    "Expert Advice": {
+      overview: "Expert Advice provides direct access to experienced agricultural scientists and field experts for instant diagnosis of crop diseases, pest control, soil health guidance, and weather advisories.",
+      keyBenefits: [
+        "Free professional advice for crop disease and pest management",
+        "Direct phone call and WhatsApp consultation with experts",
+        "Tailored recommendations for Bihar soil and climate conditions",
+        "Fast response time (usually within 2 hours)"
+      ],
+      howItWorks: [
+        "Describe your crop issue and attach photos if available",
+        "Submit query directly to the Expert Team",
+        "Our agricultural scientist contacts you via call or WhatsApp with exact solutions"
+      ]
+    },
+    "Weather Update": {
+      overview: "Weather Update delivers hyper-local real-time weather forecasts, rain alerts, temperature fluctuations, and agricultural advisories tailored specifically for farming activities.",
+      keyBenefits: [
+        "7-day weather forecast to plan irrigation and pesticide spraying",
+        "Instant alerts for unexpected heavy rainfall, hail, or storm",
+        "Crop-specific advisories based on current humidity & wind conditions",
+        "Prevents fertilizer wastage caused by sudden rain"
+      ],
+      howItWorks: [
+        "Check daily hourly temperature, humidity, and rain probability",
+        "Review agricultural advisory notes provided for current weather",
+        "Adjust irrigation and harvest schedules accordingly"
+      ]
+    }
+  };
 
   const SERVICES = [
     { icon: TrendingUp, label: t.services.mandiBhavTitle, desc: t.services.mandiBhavDesc, href: "/mandi-bhav" },
     { icon: ShoppingCart, label: t.services.buyInputsTitle, desc: t.services.buyInputsDesc, href: "/agri-market" },
     { icon: Package, label: t.services.sellCropsTitle, desc: t.services.sellCropsDesc, href: "/sell-crops" },
+    { icon: Tractor, label: "Machinery Booking", desc: "Book tractors & implements instantly", href: "/machinery-booking" },
     { icon: Users, label: t.services.labourBookingTitle, desc: t.services.labourBookingDesc, href: "/labour-booking" },
     { icon: MessageSquare, label: t.services.expertAdviceTitle, desc: t.services.expertAdviceDesc, href: "/expert-advice" },
     { icon: CloudSun, label: t.services.weatherTitle, desc: t.services.weatherDesc, href: "/weather" },
@@ -33,6 +149,7 @@ export default function Index() {
     { icon: TrendingUp, title: t.farmerNeeds.f1Title, desc: t.farmerNeeds.f1Desc, href: "/mandi-bhav", badge: t.farmerNeeds.f1Badge },
     { icon: ShoppingCart, title: t.farmerNeeds.f2Title, desc: t.farmerNeeds.f2Desc, href: "/agri-market", badge: t.farmerNeeds.f2Badge },
     { icon: Package, title: t.farmerNeeds.f3Title, desc: t.farmerNeeds.f3Desc, href: "/sell-crops", badge: t.farmerNeeds.f3Badge },
+    { icon: Tractor, title: "Machinery Booking", desc: "Book tractors, rotavators, and harvesters nearby.", href: "/machinery-booking", badge: "Instant" },
     { icon: Users, title: t.farmerNeeds.f4Title, desc: t.farmerNeeds.f4Desc, href: "/labour-booking", badge: t.farmerNeeds.f4Badge },
     { icon: MessageSquare, title: t.farmerNeeds.f5Title, desc: t.farmerNeeds.f5Desc, href: "/expert-advice", badge: t.farmerNeeds.f5Badge },
     { icon: CloudSun, title: t.farmerNeeds.f6Title, desc: t.farmerNeeds.f6Desc, href: "/weather", badge: t.farmerNeeds.f6Badge },
@@ -82,19 +199,29 @@ export default function Index() {
               </h1>
               <p className="text-gray-300 text-lg md:text-xl mb-8 leading-relaxed max-w-2xl">{t.hero.desc}</p>
               <div className="flex flex-wrap gap-4 mb-12">
-                <Link to="/register">
-                  <Button size="lg" className="bg-primary text-black font-bold text-base px-8 hover:bg-primary/90 rounded-full">
-                    {t.hero.getStarted} <ArrowRight className="ml-2 h-5 w-5" />
+                {user ? (
+                  <Link to="/dashboard">
+                    <Button size="lg" className="bg-primary text-black font-bold text-base px-8 hover:bg-primary/90 rounded-full shadow-lg hover:shadow-primary/20">
+                      Go to Dashboard <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <Link to="/register">
+                    <Button size="lg" className="bg-primary text-black font-bold text-base px-8 hover:bg-primary/90 rounded-full">
+                      {t.hero.getStarted} <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  </Link>
+                )}
+                {!hasAppliedKcc && (
+                  <Button
+                    size="lg"
+                    onClick={() => setIsKccAppModalOpen(true)}
+                    className="bg-amber-500 hover:bg-amber-400 text-black font-bold text-base px-8 rounded-full border-0"
+                  >
+                    <CreditCard className="mr-2 h-5 w-5" />
+                    {t.hero.applyKcc}
                   </Button>
-                </Link>
-                <Button
-                  size="lg"
-                  onClick={() => setIsKccAppModalOpen(true)}
-                  className="bg-amber-500 hover:bg-amber-400 text-black font-bold text-base px-8 rounded-full border-0"
-                >
-                  <CreditCard className="mr-2 h-5 w-5" />
-                  {t.hero.applyKcc}
-                </Button>
+                )}
               </div>
               <div className="flex flex-wrap gap-8">
                 {STATS.map((s) => (
@@ -169,8 +296,22 @@ export default function Index() {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.05 }}
               >
-                <Link
-                  to={f.href}
+                <div
+                  onClick={() => {
+                    const details = FEATURE_DETAILS[f.title] || {
+                      overview: f.desc,
+                      keyBenefits: ["Direct access to services", "Verified transparency", "Designed for farmers"],
+                      howItWorks: ["Select option", "Fill details", "Get instant service"]
+                    };
+                    setSelectedFeature({
+                      icon: f.icon,
+                      title: f.title,
+                      desc: f.desc,
+                      badge: f.badge,
+                      href: f.href,
+                      explanation: details
+                    });
+                  }}
                   className="flex flex-col h-full bg-[#121212] border border-white/10 hover:border-primary/50 hover:bg-primary/5 rounded-2xl p-4 sm:p-5 transition-all group cursor-pointer hover:-translate-y-1"
                 >
                   <div className="flex items-center justify-between mb-3">
@@ -193,32 +334,90 @@ export default function Index() {
                   <div className="mt-3 flex items-center gap-1 text-[11px] font-bold text-primary opacity-90 group-hover:opacity-100">
                     {t.farmerNeeds.explore} <ChevronRight className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
                   </div>
-                </Link>
+                </div>
               </motion.div>
             ))}
           </div>
 
-          {/* KCC promo strip */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mt-10 rounded-2xl bg-linear-to-r from-amber-900/30 via-amber-800/20 to-amber-900/30 border border-amber-500/30 p-6 flex flex-col sm:flex-row items-center gap-4"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
-              <CreditCard className="h-7 w-7 text-amber-400" />
-            </div>
-            <div className="flex-1 text-center sm:text-left">
-              <p className="text-amber-300 font-bold text-lg">{t.home.kccPromoTitle}</p>
-              <p className="text-amber-500/80 text-sm">{t.home.kccPromoDesc}</p>
-            </div>
-            <Button
-              onClick={() => setIsKccAppModalOpen(true)}
-              className="bg-amber-500 hover:bg-amber-400 text-black font-bold shrink-0"
+          {/* Image 4 Featured Services Cards */}
+          <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
+            {[
+              {
+                title: "Book Machinery Instantly",
+                desc: "Tractors, Rotavators, Harvesters and more at your fingertips.",
+                img: "https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?w=500&q=80",
+                btn: "Book Now",
+                href: "/machinery-booking",
+              },
+              {
+                title: "Live Weather Forecast",
+                desc: "Accurate daily & weekly weather forecasts to plan farming activities.",
+                img: "https://images.unsplash.com/photo-1592210454359-9043f067919b?w=500&q=80",
+                btn: "Check Forecast",
+                href: "/weather",
+              },
+              {
+                title: "Talk to Expert",
+                desc: "Get solution for your crop problems from experts.",
+                img: "https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=500&q=80",
+                btn: "Chat Now",
+                href: "/expert-advice",
+              },
+            ].map((card, i) => (
+              <motion.div
+                key={card.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="relative rounded-2xl overflow-hidden h-52 group border border-white/10 shadow-xl"
+              >
+                <img
+                  src={card.img}
+                  alt={card.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-60"
+                />
+                <div className="absolute inset-0 bg-linear-to-t from-black/95 via-black/50 to-transparent" />
+                <div className="absolute bottom-0 left-0 p-5 w-full">
+                  <h3 className="text-lg font-bold text-white mb-1" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                    {card.title}
+                  </h3>
+                  <p className="text-xs text-gray-300 mb-3 line-clamp-2 leading-relaxed">
+                    {card.desc}
+                  </p>
+                  <Link to={card.href}>
+                    <Button size="sm" className="bg-primary text-black font-bold text-xs py-1.5 px-4 hover:bg-primary/90 rounded-xl cursor-pointer">
+                      {card.btn} →
+                    </Button>
+                  </Link>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* KCC promo strip (Hidden once applied) */}
+          {!hasAppliedKcc && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mt-10 rounded-2xl bg-linear-to-r from-amber-900/30 via-amber-800/20 to-amber-900/30 border border-amber-500/30 p-6 flex flex-col sm:flex-row items-center gap-4"
             >
-              {t.home.applyNow}
-            </Button>
-          </motion.div>
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
+                <CreditCard className="h-7 w-7 text-amber-400" />
+              </div>
+              <div className="flex-1 text-center sm:text-left">
+                <p className="text-amber-300 font-bold text-lg">{t.home.kccPromoTitle}</p>
+                <p className="text-amber-500/80 text-sm">{t.home.kccPromoDesc}</p>
+              </div>
+              <Button
+                onClick={() => setIsKccAppModalOpen(true)}
+                className="bg-amber-500 hover:bg-amber-400 text-black font-bold shrink-0"
+              >
+                {t.home.applyNow}
+              </Button>
+            </motion.div>
+          )}
         </div>
       </section>
 
@@ -285,27 +484,133 @@ export default function Index() {
         <div className="max-w-3xl mx-auto px-4 text-center">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <h2 className="text-4xl md:text-5xl font-black mb-4" style={{ fontFamily: "Rajdhani, sans-serif" }}>
-              {t.home.joinTitle} <span className="text-primary">{t.home.joinHighlight}</span>
+              {user ? (
+                <>Welcome Back to <span className="text-primary">Krivexa</span></>
+              ) : (
+                <>{t.home.joinTitle} <span className="text-primary">{t.home.joinHighlight}</span></>
+              )}
             </h2>
-            <p className="text-gray-400 mb-8 text-lg">{t.home.joinDesc}</p>
+            <p className="text-gray-400 mb-8 text-lg">
+              {user
+                ? "Manage your farm, mandi prices, machinery bookings, and wallet from your personalized dashboard."
+                : t.home.joinDesc}
+            </p>
             <div className="flex flex-wrap items-center justify-center gap-4">
-              <Link to="/register">
-                <Button size="lg" className="bg-primary text-black font-bold px-10 text-base hover:bg-primary/90 rounded-full">
-                  {t.home.registerNow} <ChevronRight className="ml-1 h-5 w-5" />
+              {user ? (
+                <Link to="/dashboard">
+                  <Button size="lg" className="bg-primary text-black font-bold px-10 text-base hover:bg-primary/90 rounded-full shadow-lg hover:shadow-primary/20">
+                    Go to Dashboard <ChevronRight className="ml-1 h-5 w-5" />
+                  </Button>
+                </Link>
+              ) : (
+                <Link to="/register">
+                  <Button size="lg" className="bg-primary text-black font-bold px-10 text-base hover:bg-primary/90 rounded-full">
+                    {t.home.registerNow} <ChevronRight className="ml-1 h-5 w-5" />
+                  </Button>
+                </Link>
+              )}
+
+              {!hasAppliedKcc && (
+                <Button
+                  size="lg"
+                  variant="ghost"
+                  onClick={() => setIsKccAppModalOpen(true)}
+                  className="border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 rounded-full px-8 cursor-pointer"
+                >
+                  <CreditCard className="mr-2 h-5 w-5" /> {t.hero.applyKcc}
                 </Button>
-              </Link>
-              <Button
-                size="lg"
-                variant="ghost"
-                onClick={() => setIsKccAppModalOpen(true)}
-                className="border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 rounded-full px-8"
-              >
-                <CreditCard className="mr-2 h-5 w-5" /> {t.hero.applyKcc}
-              </Button>
+              )}
             </div>
           </motion.div>
         </div>
       </section>
+
+      {/* === FEATURE EXPLANATION MODAL === */}
+      {selectedFeature && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121212] border border-white/10 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 text-white relative shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedFeature(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-full p-2 transition-colors cursor-pointer"
+            >
+              ✕
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-6 pr-8">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary shrink-0">
+                <selectedFeature.icon className="h-7 w-7" />
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 mb-1">
+                  {selectedFeature.badge}
+                </div>
+                <h3 className="text-2xl font-black text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                  {selectedFeature.title}
+                </h3>
+              </div>
+            </div>
+
+            {/* Overview */}
+            <div className="mb-6 bg-white/5 border border-white/10 rounded-xl p-4 sm:p-5">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-2">Service Overview</h4>
+              <p className="text-sm text-gray-300 leading-relaxed">
+                {selectedFeature.explanation.overview}
+              </p>
+            </div>
+
+            {/* Key Benefits & How it works */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-1.5">
+                  <CheckCircle className="h-4 w-4" /> Key Benefits
+                </h4>
+                <ul className="space-y-2 text-xs text-gray-300">
+                  {selectedFeature.explanation.keyBenefits.map((b, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-primary font-bold">•</span>
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-white mb-3 flex items-center gap-1.5">
+                  <ArrowRight className="h-4 w-4 text-primary" /> How It Works
+                </h4>
+                <ol className="space-y-2 text-xs text-gray-300">
+                  {selectedFeature.explanation.howItWorks.map((step, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-white/10">
+              <Button
+                variant="outline"
+                onClick={() => setSelectedFeature(null)}
+                className="w-full sm:w-auto border-white/10 text-gray-300 hover:bg-white/5 rounded-xl"
+              >
+                Close
+              </Button>
+              <Link to={selectedFeature.href} className="w-full sm:w-auto">
+                <Button className="w-full sm:w-auto bg-primary text-black font-bold hover:bg-primary/90 rounded-xl">
+                  Go to {selectedFeature.title} Section →
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
