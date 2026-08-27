@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FlaskConical, CheckCircle, MapPin, Calendar, FileText } from "lucide-react";
+import { FlaskConical, CheckCircle, MapPin, Calendar, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
 import { toast } from "sonner";
+import { useApp } from "@/context/AppContext.tsx";
+import FormPreviewModal from "@/components/FormPreviewModal.tsx";
+import { generateFormPdf } from "@/lib/pdfGenerator.ts";
 
 const PACKAGES = [
   { name: "Basic Soil Test", price: "₹299", tests: ["pH Level", "Nitrogen (N)", "Phosphorus (P)", "Potassium (K)"], popular: false },
@@ -22,7 +25,71 @@ const PROCESS = [
 ];
 
 export default function SoilTestingPage() {
+  const { user, addNotification } = useApp();
   const [selected, setSelected] = useState("Standard Soil Test");
+  const [name, setName] = useState(user?.name || "");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [address, setAddress] = useState("");
+  const [date, setDate] = useState("");
+  const [crop, setCrop] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !phone || !address || !date || !crop) {
+      toast.error("Please fill in all details");
+      return;
+    }
+    setShowPreview(true);
+  };
+
+  const handleConfirmSubmit = () => {
+    setShowPreview(false);
+    setLoading(true);
+
+    setTimeout(() => {
+      const refId = `SOIL-${Math.floor(100000 + Math.random() * 900000)}`;
+      const selectedPkg = PACKAGES.find((p) => p.name === selected);
+
+      // Generate PDF
+      const { dataUrl, fileName } = generateFormPdf({
+        formTitle: "Soil Testing Booking Receipt",
+        referenceId: refId,
+        userName: name,
+        userPhone: phone,
+        userRole: user?.role === "farmer" ? "Farmer" : "Dealer",
+        details: {
+          "Customer Name": name,
+          "Contact Phone": phone,
+          "Field Address": address,
+          "Preferred Date": date,
+          "Intended Crop": crop,
+          "Chosen Package": selected,
+          "Price Rate": selectedPkg?.price || "N/A",
+        },
+      });
+
+      // Send notification with PDF receipt
+      addNotification(
+        "Soil Test Scheduled 🔬",
+        `Your booking for ${selected} has been registered (Ref: ${refId}). Download PDF receipt.`,
+        "success",
+        "/soil-testing",
+        "soil",
+        dataUrl,
+        fileName
+      );
+
+      setLoading(false);
+      setName("");
+      setPhone("");
+      setAddress("");
+      setDate("");
+      setCrop("");
+      toast.success("Soil test booked! Our expert will contact you shortly.");
+    }, 1000);
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
@@ -91,22 +158,22 @@ export default function SoilTestingPage() {
             <FlaskConical className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-bold">Book Soil Test</h2>
           </div>
-          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); toast.success("Soil test booked! Our expert will contact you shortly."); }}>
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-gray-300 text-sm mb-1.5 block">Full Name</Label>
-                <Input placeholder="Your name" className="bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
+                <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Your name" className="bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
               </div>
               <div>
                 <Label className="text-gray-300 text-sm mb-1.5 block">Mobile Number</Label>
-                <Input placeholder="Mobile number" className="bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} required placeholder="Mobile number" className="bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
               </div>
             </div>
             <div>
               <Label className="text-gray-300 text-sm mb-1.5 block">Village / Address</Label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                <Input placeholder="Enter field location" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
+                <Input value={address} onChange={(e) => setAddress(e.target.value)} required placeholder="Enter field location" className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -114,12 +181,12 @@ export default function SoilTestingPage() {
                 <Label className="text-gray-300 text-sm mb-1.5 block">Preferred Date</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                  <Input type="date" className="pl-10 bg-white/5 border-white/10 text-white" />
+                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="pl-10 bg-white/5 border-white/10 text-white" />
                 </div>
               </div>
               <div>
                 <Label className="text-gray-300 text-sm mb-1.5 block">Crop Type</Label>
-                <Select>
+                <Select value={crop} onValueChange={setCrop}>
                   <SelectTrigger className="bg-white/5 border-white/10 text-gray-400">
                     <SelectValue placeholder="Select crop" />
                   </SelectTrigger>
@@ -138,12 +205,29 @@ export default function SoilTestingPage() {
                 <div className="text-[11px] text-gray-500">{PACKAGES.find((p) => p.name === selected)?.price}</div>
               </div>
             </div>
-            <Button type="submit" className="w-full bg-primary text-black font-bold py-5 text-base hover:bg-primary/90">
-              Book Soil Test →
+            <Button type="submit" disabled={loading} className="w-full bg-primary text-black font-bold py-5 text-base hover:bg-primary/90 rounded-xl">
+              {loading ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Submitting...</> : "Book Soil Test →"}
             </Button>
           </form>
         </div>
       </div>
+
+      <FormPreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        onConfirm={handleConfirmSubmit}
+        title="Soil Test Booking Preview"
+        data={{
+          "Customer Name": name,
+          "Contact Phone": phone,
+          "Preferred Date": date,
+          "Crop Cultivated": crop,
+          "Address/Location": address,
+          "Test Package": selected,
+          "Estimated Cost": PACKAGES.find((p) => p.name === selected)?.price || "N/A"
+        }}
+        loading={loading}
+      />
 
       <Footer />
     </div>

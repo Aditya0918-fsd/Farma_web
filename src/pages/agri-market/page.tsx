@@ -86,7 +86,7 @@ function CropDetailModal({ crop, onClose }: CropDetailModalProps) {
 }
 
 export default function AgriMarketPage() {
-  const { cropListings, checkKccPermission, t } = useApp();
+  const { cropListings, checkKccPermission, addToCart, t } = useApp();
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [selectedCrop, setSelectedCrop] = useState<CropListing | null>(null);
@@ -112,9 +112,22 @@ export default function AgriMarketPage() {
     setSelectedCrop(crop);
   };
 
-  const handleAddToCart = (name: string) => {
+  const handleAddToCart = (product: { id: string; name: string; category?: string; price: number; unit?: string; img?: string }) => {
     if (!checkKccPermission()) return;
-    toast.success(`${name} added to cart!`);
+    addToCart({
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      price: product.price,
+      unit: product.unit,
+      image: product.img,
+    });
+    toast.success(`${product.name} added to cart!`, {
+      action: {
+        label: "View Cart",
+        onClick: () => window.location.href = "/cart"
+      }
+    });
   };
 
   return (
@@ -194,10 +207,27 @@ export default function AgriMarketPage() {
                     <p className="text-xs text-gray-400 mb-2">{t.buyInputs.by} {crop.sellerName} · {crop.weight}</p>
                     <div className="flex items-end justify-between">
                       <div className="text-xl font-black text-amber-400" style={{ fontFamily: "Rajdhani, sans-serif" }}>₹{crop.price}<span className="text-xs text-gray-500 font-normal">/Qtl</span></div>
-                      <Button size="sm" onClick={() => handleViewDetails(crop)}
-                        className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold h-8 px-3 rounded-lg">
-                        {t.buyInputs.viewDetails} <ChevronRight className="h-3 w-3 ml-0.5" />
-                      </Button>
+                      <div className="flex gap-1.5">
+                        <Button size="sm" onClick={() => {
+                          if (!checkKccPermission()) return;
+                          addToCart({
+                            id: crop.id,
+                            name: crop.cropName,
+                            category: "Farmer Crops",
+                            price: crop.price,
+                            unit: crop.weight,
+                            image: crop.image,
+                            sellerName: crop.sellerName
+                          });
+                          toast.success(`${crop.cropName} added to cart!`);
+                        }} className="bg-primary hover:bg-primary/90 text-black text-xs font-bold h-8 px-2.5 rounded-lg">
+                          + Cart
+                        </Button>
+                        <Button size="sm" onClick={() => handleViewDetails(crop)}
+                          className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold h-8 px-2.5 rounded-lg">
+                          {t.buyInputs.viewDetails} <ChevronRight className="h-3 w-3 ml-0.5" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -238,7 +268,7 @@ export default function AgriMarketPage() {
                         <div className="text-[10px] text-gray-500">{p.unit}</div>
                       </div>
                       <Button size="sm"
-                        onClick={() => handleAddToCart(p.name)}
+                        onClick={() => handleAddToCart(p)}
                         className="bg-primary text-black text-xs font-semibold h-8 px-3 rounded-lg hover:bg-primary/90">
                         {t.buyInputs.addToCart}
                       </Button>

@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
 import { useApp } from "@/context/AppContext.tsx";
 import { toast } from "sonner";
+import FormPreviewModal from "@/components/FormPreviewModal.tsx";
+import { generateFormPdf } from "@/lib/pdfGenerator.ts";
 
 /** KCC blocked-action alert */
 export function KccAlertModal() {
@@ -47,9 +49,11 @@ export function KccAlertModal() {
 
 /** Full KCC Application Form Modal */
 export function KccApplicationModal() {
-  const { isKccAppModalOpen, setIsKccAppModalOpen, submitKccApplication, t } = useApp();
+  const { isKccAppModalOpen, setIsKccAppModalOpen, submitKccApplication, addNotification, user, t } = useApp();
   const [form, setForm] = useState({ fullName: "", phone: "", aadhaar: "", address: "", district: "", landSize: "" });
   const [submitted, setSubmitted] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   if (!isKccAppModalOpen) return null;
 
@@ -59,9 +63,50 @@ export function KccApplicationModal() {
       toast.error("Please fill in all required fields.");
       return;
     }
-    submitKccApplication(form);
-    setSubmitted(true);
-    toast.success(t.kccModal.success);
+    setShowPreview(true);
+  };
+
+  const handleConfirmSubmit = () => {
+    setShowPreview(false);
+    setLoading(true);
+
+    setTimeout(() => {
+      const refId = `KCC-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      // Generate PDF
+      const { dataUrl, fileName } = generateFormPdf({
+        formTitle: "Kishan Credit Card Application",
+        referenceId: refId,
+        userName: form.fullName,
+        userPhone: form.phone,
+        userRole: user?.role === "farmer" ? "Farmer" : "Dealer",
+        details: {
+          "Applicant Full Name": form.fullName,
+          "Contact Phone": form.phone,
+          "Aadhaar UIDAI Number": form.aadhaar,
+          "Land Ownership Size": form.landSize ? `${form.landSize} Acres` : "Not Specified",
+          "District Zone": form.district,
+          "Permanent Address": form.address || "Not Specified",
+        },
+      });
+
+      submitKccApplication(form);
+
+      // Send notification with PDF receipt
+      addNotification(
+        "KCC Application Logged 💳",
+        `Your Kishan Credit Card application for ${form.fullName} (Aadhaar: ${form.aadhaar}) is received (Ref: ${refId}). Download PDF receipt.`,
+        "success",
+        "/dashboard",
+        "kcc",
+        dataUrl,
+        fileName
+      );
+
+      setLoading(false);
+      setSubmitted(true);
+      toast.success(t.kccModal.success);
+    }, 1000);
   };
 
   const handleClose = () => {
@@ -137,6 +182,22 @@ export function KccApplicationModal() {
           )}
         </div>
       </div>
+
+      <FormPreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        onConfirm={handleConfirmSubmit}
+        title="KCC Application Preview"
+        data={{
+          "Full Name": form.fullName,
+          "Contact Phone": form.phone,
+          "Aadhaar Number": form.aadhaar,
+          "District Location": form.district,
+          "Land Ownership Size": form.landSize ? `${form.landSize} Acres` : "N/A",
+          "Permanent Address": form.address || "N/A"
+        }}
+        loading={loading}
+      />
     </div>
   );
 }

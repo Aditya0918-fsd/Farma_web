@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, ChevronDown, Globe, LogIn, CreditCard, Bell, User, LogOut, CheckCheck, MapPin, Store, Wallet, Sprout, MoreVertical, ChevronRight, LayoutDashboard } from "lucide-react";
+import { Menu, X, ChevronDown, Globe, LogIn, CreditCard, Bell, User, LogOut, CheckCheck, MapPin, Store, Wallet, Sprout, MoreVertical, ChevronRight, LayoutDashboard, ShoppingCart, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
 import { useApp } from "@/context/AppContext.tsx";
@@ -28,7 +28,10 @@ export default function Navbar() {
     markAllNotificationsAsRead,
     markNotificationAsRead,
     deleteNotification,
+    cart,
   } = useApp();
+
+  const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -180,6 +183,20 @@ export default function Navbar() {
             {user ? (
               <div className="flex items-center gap-3 pl-2 border-l border-white/10">
                 
+                {/* Cart Icon Button (Beside Notifications) */}
+                <Link
+                  to="/cart"
+                  className="relative p-2 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:text-primary hover:border-primary/40 transition-colors cursor-pointer"
+                  title="My Personal Cart"
+                >
+                  <ShoppingCart className="h-4 w-4 text-primary" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-black text-[10px] font-black rounded-full flex items-center justify-center animate-bounce">
+                      {cartCount}
+                    </span>
+                  )}
+                </Link>
+
                 {/* Notifications Dropdown */}
                 <div className="relative">
                   <button
@@ -235,6 +252,21 @@ export default function Navbar() {
                                 <p className={`text-xs font-semibold leading-snug ${n.read ? "text-gray-300" : "text-white"}`}>{n.title}</p>
                                 <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
                                 <p className="text-[10px] text-gray-600 mt-1">{n.time}</p>
+                                {n.pdfDataUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      markNotificationAsRead(n.id);
+                                      import("@/lib/pdfGenerator").then(({ downloadPdf }) => {
+                                        downloadPdf(n.pdfDataUrl!, n.pdfFileName || "receipt.pdf");
+                                      });
+                                    }}
+                                    className="mt-2 w-full flex items-center justify-center gap-1 bg-primary/10 border border-primary/20 text-primary text-[10px] py-1 px-2 rounded-lg font-bold hover:bg-primary/20 hover:text-white transition-all cursor-pointer"
+                                  >
+                                    <FileDown className="h-3.5 w-3.5" /> Download PDF Receipt
+                                  </button>
+                                )}
                               </div>
                               <button
                                 type="button"
@@ -363,9 +395,23 @@ export default function Navbar() {
 
           </div>
 
-          {/* Mobile Right Controls: Notification Bell (beside 3 dots) + 3-Dots Menu */}
+          {/* Mobile Right Controls: Cart + Notification Bell (beside 3 dots) + 3-Dots Menu */}
           <div className="flex lg:hidden items-center gap-2">
             
+            {/* Functional Cart Icon */}
+            <Link
+              to="/cart"
+              className="relative p-2 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:text-primary hover:border-primary/40 transition-colors cursor-pointer"
+              aria-label="My Cart"
+            >
+              <ShoppingCart className="h-5 w-5 text-primary" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-black text-[10px] font-black rounded-full flex items-center justify-center animate-bounce">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+
             {/* Functional Notification Bell Beside 3 Dots */}
             {user && (
               <div className="relative">
@@ -421,6 +467,21 @@ export default function Navbar() {
                               <p className={`text-xs font-semibold leading-snug ${n.read ? "text-gray-300" : "text-white"}`}>{n.title}</p>
                               <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
                               <p className="text-[10px] text-gray-600 mt-1">{n.time}</p>
+                              {n.pdfDataUrl && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    markNotificationAsRead(n.id);
+                                    import("@/lib/pdfGenerator").then(({ downloadPdf }) => {
+                                      downloadPdf(n.pdfDataUrl!, n.pdfFileName || "receipt.pdf");
+                                    });
+                                  }}
+                                  className="mt-2 w-full flex items-center justify-center gap-1 bg-primary/10 border border-primary/20 text-primary text-[10px] py-1 px-2 rounded-lg font-bold hover:bg-primary/20 hover:text-white transition-all cursor-pointer"
+                                >
+                                  <FileDown className="h-3.5 w-3.5" /> Download PDF Receipt
+                                </button>
+                              )}
                             </div>
                             <button
                               type="button"

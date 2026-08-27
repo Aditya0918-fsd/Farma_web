@@ -7,14 +7,17 @@ import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext.tsx";
+import FormPreviewModal from "@/components/FormPreviewModal.tsx";
+import { generateFormPdf } from "@/lib/pdfGenerator.ts";
 
 export default function SellCropsPage() {
-  const { addCropListing, checkKccPermission, t } = useApp();
+  const { addCropListing, checkKccPermission, addNotification, user, t } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string>("");
+  const [showPreview, setShowPreview] = useState(false);
   const [form, setForm] = useState({
     sellerName: "",
     district: "",
@@ -40,8 +43,37 @@ export default function SellCropsPage() {
       toast.error("Please fill in all required fields.");
       return;
     }
+    // Open preview step
+    setShowPreview(true);
+  };
+
+  const handleConfirmSubmit = () => {
+    setShowPreview(false);
     setLoading(true);
+
     setTimeout(() => {
+      const refId = `CRP-${Math.floor(100000 + Math.random() * 900000)}`;
+      
+      // Generate PDF
+      const { dataUrl, fileName } = generateFormPdf({
+        formTitle: "Sell Crops Listing Request",
+        referenceId: refId,
+        userName: form.sellerName,
+        userPhone: form.phone,
+        userRole: user?.role === "farmer" ? "Farmer" : "Dealer",
+        details: {
+          "Seller Name": form.sellerName,
+          "Contact Phone": form.phone,
+          "Crop Name": form.cropName,
+          "Weight/Quantity": form.weight,
+          "Target Price": `₹${form.price} / Qtl`,
+          "District": form.district,
+          "City/Village": form.city || "Not Specified",
+          "Address details": form.address || "Not Specified",
+          "Pincode": form.pincode || "Not Specified",
+        },
+      });
+
       addCropListing({
         sellerName: form.sellerName,
         district: form.district,
@@ -54,10 +86,22 @@ export default function SellCropsPage() {
         price: parseFloat(form.price),
         image: previewImage || "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=500&q=80",
       });
+
+      // Send to notifications with pdfDataUrl
+      addNotification(
+        "Crop Listing Submitted 🌾",
+        `Your listing request for ${form.cropName} (${form.weight}) has been received (Ref: ${refId}). Download your official receipt PDF.`,
+        "success",
+        "/sell-crops",
+        "crops",
+        dataUrl,
+        fileName
+      );
+
       setLoading(false);
       setSubmitted(true);
       toast.success(t.sellCrops.submittedMsg);
-    }, 1200);
+    }, 1000);
   };
 
   return (
@@ -218,6 +262,25 @@ export default function SellCropsPage() {
           </div>
         )}
       </div>
+
+      <FormPreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        onConfirm={handleConfirmSubmit}
+        title="Sell Crop Listing Preview"
+        data={{
+          "Seller Name": form.sellerName,
+          "Contact Phone": form.phone,
+          "Crop Name": form.cropName,
+          "Estimated Weight": form.weight,
+          "Expected Price": `₹${form.price} / Qtl`,
+          "District Location": form.district,
+          "City / Town": form.city || "N/A",
+          "Postal Code": form.pincode || "N/A",
+          "Full Address": form.address || "N/A"
+        }}
+        loading={loading}
+      />
 
       <Footer />
     </div>

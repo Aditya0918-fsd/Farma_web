@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Wallet, Plus, ArrowUpRight, ArrowDownRight, ArrowRight, Shield, Eye, EyeOff, CreditCard, Clock, CheckCircle2, UserPlus, Search, ShoppingBag, Receipt, AlertCircle } from "lucide-react";
+import { Wallet, Plus, ArrowUpRight, ArrowDownRight, ArrowRight, Shield, Eye, EyeOff, CreditCard, Clock, CheckCircle2, UserPlus, Search, ShoppingBag, Receipt, AlertCircle, Smartphone, KeyRound, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
@@ -8,6 +8,8 @@ import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext.tsx";
+import FormPreviewModal from "@/components/FormPreviewModal.tsx";
+import { generateFormPdf } from "@/lib/pdfGenerator.ts";
 
 const TRANSACTIONS = [
   { title: "Pesticides Purchase", type: "debit", amount: 850, date: "12 May 2024", category: "Purchase", id: "#TXN001" },
@@ -21,7 +23,7 @@ const TRANSACTIONS = [
 ];
 
 export default function WalletPage() {
-  const { t, user, kccApplicationStatus, kccDetails, hasAppliedKcc, dealerApplyFarmerKcc, checkFarmerCardBalance, chargeFarmerCard } = useApp();
+  const { t, user, kccApplicationStatus, kccDetails, hasAppliedKcc, dealerApplyFarmerKcc, checkFarmerCardBalance, chargeFarmerCard, addNotification } = useApp();
   const [showBalance, setShowBalance] = useState(true);
   const [addAmount, setAddAmount] = useState("");
 
@@ -42,6 +44,201 @@ export default function WalletPage() {
   const [foundCardInfo, setFoundCardInfo] = useState<any>(null);
   const [billAmount, setBillAmount] = useState("");
   const [billItem, setBillItem] = useState("");
+  const [posPaymentMethod, setPosPaymentMethod] = useState<"kcc" | "wallet" | "upi" | "cod">("kcc");
+
+  // OTP Verification States
+  const [otpStep, setOtpStep] = useState<"idle" | "sending" | "verify" | "verified">("idle");
+  const [otpInput, setOtpInput] = useState("");
+  const [generatedOtp, setGeneratedOtp] = useState("");
+  const [otpTimer, setOtpTimer] = useState(0);
+  const [otpSent, setOtpSent] = useState(false);
+
+  // Preview States
+  const [showKccPreview, setShowKccPreview] = useState(false);
+  const [showPosPreview, setShowPosPreview] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  /** Simulate sending a 6-digit OTP to buyer's registered phone */
+  const sendOtp = () => {
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    setGeneratedOtp(otp);
+    setOtpStep("sending");
+    setTimeout(() => {
+      setOtpStep("verify");
+      setOtpSent(true);
+      setOtpTimer(60);
+      // Countdown timer
+      let t = 60;
+      const interval = setInterval(() => {
+        t--;
+        setOtpTimer(t);
+        if (t <= 0) clearInterval(interval);
+      }, 1000);
+      // DEV: show OTP in toast so it can be tested
+      toast.success(`OTP sent! (Demo OTP: ${otp})`, { duration: 8000 });
+    }, 1200);
+  };
+
+  const verifyOtp = () => {
+    if (otpInput.trim() === generatedOtp) {
+      setOtpStep("verified");
+      toast.success("✅ OTP verified! Proceed to checkout.");
+    } else {
+      toast.error("❌ Incorrect OTP. Please try again.");
+      setOtpInput("");
+    }
+  };
+
+  const resetPosModal = () => {
+    setIsPosModalOpen(false);
+    setFoundCardInfo(null);
+    setSearchCardNum("");
+    setBillAmount("");
+    setBillItem("");
+    setPosPaymentMethod("kcc");
+    setOtpStep("idle");
+    setOtpInput("");
+    setGeneratedOtp("");
+    setOtpSent(false);
+    setOtpTimer(0);
+  };
+
+  const handleKccConfirm = () => {
+    setShowKccPreview(false);
+    setLoading(true);
+    setTimeout(() => {
+      const refId = `KCC-DL-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      // Generate PDF
+      const { dataUrl, fileName } = generateFormPdf({
+        formTitle: "Farmer KCC Application (Dealer Portal)",
+        referenceId: refId,
+        userName: farmerForm.fullName,
+        userPhone: farmerForm.phone,
+        userRole: "Farmer",
+        details: {
+          "Applicant Full Name": farmerForm.fullName,
+          "Contact Phone": farmerForm.phone,
+          "Aadhaar UIDAI": farmerForm.aadhaar,
+          "Land Holding Size": farmerForm.landSize || "Not Specified",
+          "District/Village": farmerForm.district || "Not Specified",
+          "Permanent Address": farmerForm.address || "Not Specified",
+          "Submitted By (Dealer)": user?.name || "Krivexa Dealer",
+        },
+      });
+
+      dealerApplyFarmerKcc(farmerForm);
+
+      // Send notification with PDF receipt
+      addNotification(
+        "Farmer KCC Application Submitted 💳",
+        `KCC Application for ${farmerForm.fullName} has been submitted on their behalf (Ref: ${refId}). Download PDF receipt.`,
+        "success",
+        "/wallet",
+        "kcc",
+        dataUrl,
+        fileName
+      );
+
+      setLoading(false);
+      setIsDealerApplyModalOpen(false);
+      toast.success(`Kishan Credit Card Application for ${farmerForm.fullName} submitted successfully!`);
+      setFarmerForm({ fullName: "", phone: "", aadhaar: "", address: "", district: "", landSize: "" });
+    }, 1000);
+  };
+
+  const POS_PAYMENT_METHODS = [
+    {
+      id: "kcc" as const,
+      label: "Kisan Credit Card (KCC)",
+      sub: `Card: ${searchCardNum || "Enter card number first"}`,
+      icon: "💳",
+      recommended: true,
+      color: "border-primary bg-primary/10",
+      activeText: "text-primary",
+    },
+    {
+      id: "wallet" as const,
+      label: "Krivexa Kisan Wallet",
+      sub: "Direct debit from wallet balance",
+      icon: "👛",
+      recommended: false,
+      color: "border-blue-500 bg-blue-500/10",
+      activeText: "text-blue-400",
+    },
+    {
+      id: "upi" as const,
+      label: "UPI / GPay / PhonePe",
+      sub: "Instant online payment via UPI",
+      icon: "📱",
+      recommended: false,
+      color: "border-purple-500 bg-purple-500/10",
+      activeText: "text-purple-400",
+    },
+    {
+      id: "cod" as const,
+      label: "Cash on Delivery (COD)",
+      sub: "Pay cash when items arrive",
+      icon: "🚛",
+      recommended: false,
+      color: "border-amber-500 bg-amber-500/10",
+      activeText: "text-amber-400",
+    },
+  ];
+
+  const handlePosConfirm = () => {
+    setShowPosPreview(false);
+    setLoading(true);
+    setTimeout(() => {
+      const refId = `POS-${Math.floor(100000 + Math.random() * 900000)}`;
+      const amt = parseFloat(billAmount);
+      const payMethodLabel = POS_PAYMENT_METHODS.find(m => m.id === posPaymentMethod)?.label || posPaymentMethod;
+
+      // Only charge KCC card if payment method is KCC
+      if (posPaymentMethod === "kcc") {
+        const res = chargeFarmerCard(searchCardNum, amt, billItem);
+        if (!res.success) {
+          toast.error(res.message);
+          setLoading(false);
+          return;
+        }
+        setFoundCardInfo({ ...foundCardInfo, balance: res.remainingBalance });
+      }
+
+      // Generate PDF Invoice
+      const { dataUrl, fileName } = generateFormPdf({
+        formTitle: "Dealer POS Sale Invoice",
+        referenceId: refId,
+        userName: posPaymentMethod === "kcc" ? (foundCardInfo?.cardHolder || "Customer") : (user?.name || "Customer"),
+        userPhone: posPaymentMethod === "kcc" ? searchCardNum : "",
+        userRole: "Farmer",
+        details: {
+          "Customer / Card Holder": posPaymentMethod === "kcc" ? foundCardInfo?.cardHolder || "N/A" : "Walk-in Customer",
+          "Billing Item": billItem,
+          "Bill Amount": `₹${amt}`,
+          "Payment Method": payMethodLabel,
+          ...(posPaymentMethod === "kcc" ? { "KCC Card Charged": searchCardNum } : {}),
+          "Processed By (Dealer)": user?.name || "Krivexa Dealer",
+        },
+      });
+
+      addNotification(
+        "POS Sale Invoice Generated 🧾",
+        `Sale of ₹${amt} for "${billItem}" via ${payMethodLabel} processed (Invoice: ${refId}). Download PDF.`,
+        "success",
+        "/wallet",
+        "wallet",
+        dataUrl,
+        fileName
+      );
+
+      toast.success(`Payment of ₹${amt} via ${payMethodLabel} processed successfully!`);
+      setIsPosModalOpen(false);
+      setBillAmount("");
+      setBillItem("");
+      setLoading(false);
+    }, 1000);
+  };
 
   const balance = 4250;
   const totalIn = TRANSACTIONS.filter((t) => t.type === "credit").reduce((s, t) => s + t.amount, 0);
@@ -253,10 +450,7 @@ export default function WalletPage() {
                   toast.error("Please fill all required fields");
                   return;
                 }
-                dealerApplyFarmerKcc(farmerForm);
-                toast.success(`Kishan Credit Card Application for ${farmerForm.fullName} submitted successfully!`);
-                setIsDealerApplyModalOpen(false);
-                setFarmerForm({ fullName: "", phone: "", aadhaar: "", address: "", district: "", landSize: "" });
+                setShowKccPreview(true);
               }}
               className="p-5 space-y-4"
             >
@@ -342,25 +536,34 @@ export default function WalletPage() {
       {/* === MODAL 2: DEALER POS - FARMER KCC BALANCE CHECK & CARD BILLING === */}
       {isPosModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-[#111] border border-primary/40 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="p-5 border-b border-white/10 flex items-center justify-between bg-primary/10">
-              <div className="flex items-center gap-2">
-                <Receipt className="h-5 w-5 text-primary" />
-                <h3 className="font-bold text-white text-base">Dealer POS: Farmer KCC Card Billing</h3>
+          <div className="bg-[#111] border border-primary/40 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-white/10 flex items-center justify-between bg-linear-to-r from-primary/20 via-[#111] to-amber-500/10 sticky top-0 bg-[#111] z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/40 flex items-center justify-center">
+                  <Receipt className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">Dealer POS: Buyer Billing & Card Debit</h3>
+                  <p className="text-xs text-gray-400">Verify farmer KCC balance, send buyer OTP, and generate branded invoice</p>
+                </div>
               </div>
-              <button onClick={() => setIsPosModalOpen(false)} className="text-gray-400 hover:text-white font-bold text-lg cursor-pointer">✕</button>
+              <button onClick={resetPosModal} className="text-gray-400 hover:text-white font-bold text-lg cursor-pointer p-1">✕</button>
             </div>
 
-            <div className="p-5 space-y-5">
-              {/* Step 1: Search Farmer Card */}
-              <div>
-                <Label className="text-xs text-gray-300 font-semibold mb-1 block">Enter Farmer's KCC Card Number</Label>
-                <div className="flex gap-2">
+            <div className="p-6 space-y-6">
+              {/* Step 1: Card Lookup Bar */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <Label className="text-xs text-gray-300 font-bold mb-1.5 block">Enter Farmer / Buyer KCC Card Number</Label>
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     placeholder="e.g. KCC-BH-2026-9041"
                     value={searchCardNum}
-                    onChange={(e) => setSearchCardNum(e.target.value)}
-                    className="bg-white/5 border-white/10 text-white font-mono text-xs"
+                    onChange={(e) => {
+                      setSearchCardNum(e.target.value);
+                      if (otpStep !== "idle") setOtpStep("idle");
+                    }}
+                    className="bg-black/50 border-white/10 text-white font-mono text-xs flex-1"
                   />
                   <Button
                     onClick={() => {
@@ -371,72 +574,249 @@ export default function WalletPage() {
                       const res = checkFarmerCardBalance(searchCardNum);
                       if (res && res.exists) {
                         setFoundCardInfo(res);
+                        setOtpStep("idle");
                         toast.success(`Card verified! Holder: ${res.cardHolder}`);
                       } else {
                         setFoundCardInfo({ exists: false });
                         toast.error("Card number not found or inactive.");
                       }
                     }}
-                    className="bg-primary text-black font-bold text-xs shrink-0"
+                    className="bg-primary text-black font-bold text-xs px-6 py-2 shrink-0"
                   >
-                    <Search className="h-4 w-4 mr-1" /> Check Balance
+                    <Search className="h-4 w-4 mr-1.5" /> Check Balance
                   </Button>
                 </div>
-                <div className="text-[10px] text-gray-500 mt-1">
-                  Demo card numbers: <code className="text-primary">KCC-BH-2026-9041</code>, <code className="text-primary">KCC-BH-2026-1002</code>
+                <div className="text-[11px] text-gray-400 mt-2 flex items-center gap-2">
+                  <span>Demo cards:</span>
+                  <button onClick={() => setSearchCardNum("KCC-BH-2026-9041")} className="text-primary hover:underline font-mono">KCC-BH-2026-9041</button>
+                  <span>•</span>
+                  <button onClick={() => setSearchCardNum("KCC-BH-2026-1002")} className="text-primary hover:underline font-mono">KCC-BH-2026-1002</button>
                 </div>
               </div>
 
-              {/* Step 2: Show Verified Card Info */}
+              {/* Step 2: Main Billing Interface */}
               {foundCardInfo && (
                 <div>
                   {foundCardInfo.exists ? (
-                    <div className="bg-linear-to-r from-primary/10 to-amber-500/10 border border-primary/30 rounded-xl p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-[10px] text-gray-400 uppercase font-bold">Card Holder</div>
-                          <div className="text-base font-black text-white">{foundCardInfo.cardHolder}</div>
-                        </div>
-                        <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">
-                          ✅ Active Card
-                        </Badge>
-                      </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                      {/* Left Column: Buyer & Card Info + Order Summary */}
+                      <div className="lg:col-span-5 space-y-4">
+                        {/* Card Details Box */}
+                        <div className="bg-linear-to-br from-primary/15 via-emerald-950/20 to-black border border-primary/30 rounded-2xl p-5 space-y-4 shadow-lg">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Card Holder</div>
+                              <div className="text-lg font-black text-white">{foundCardInfo.cardHolder}</div>
+                            </div>
+                            <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] font-bold">
+                              ✅ Active KCC
+                            </Badge>
+                          </div>
 
-                      <div className="flex items-center justify-between pt-2 border-t border-white/10">
-                        <div>
-                          <div className="text-[10px] text-gray-400 uppercase font-bold">Available KCC Credit Limit</div>
-                          <div className="text-2xl font-black text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>
-                            ₹{foundCardInfo.balance?.toLocaleString()}.00
+                          <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+                            <div>
+                              <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Available KCC Credit Limit</div>
+                              <div className="text-2xl font-black text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                                ₹{foundCardInfo.balance?.toLocaleString()}.00
+                              </div>
+                            </div>
+                            <ShoppingBag className="h-8 w-8 text-primary/30" />
+                          </div>
+
+                          <div className="text-[11px] text-gray-400 pt-2 border-t border-white/10 flex items-center gap-1.5">
+                            <Shield className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span>OTP verification required before debiting</span>
                           </div>
                         </div>
-                        <ShoppingBag className="h-8 w-8 text-primary/40" />
+
+                        {/* Summary Card */}
+                        {billAmount && (
+                          <div className="bg-[#161616] border border-white/10 rounded-2xl p-4 space-y-2">
+                            <div className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Transaction Summary</div>
+                            <div className="flex justify-between text-xs text-gray-400">
+                              <span>Product/Service</span>
+                              <span className="text-white font-medium truncate max-w-[150px]">{billItem || "General Purchase"}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-400">
+                              <span>Subtotal</span>
+                              <span className="text-white font-semibold">₹{parseFloat(billAmount || "0").toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-400">
+                              <span>Convenience Fee</span>
+                              <span className="text-primary font-semibold">₹0.00</span>
+                            </div>
+                            <div className="flex justify-between text-sm font-black pt-2 border-t border-white/10 text-white">
+                              <span>Total Amount</span>
+                              <span className="text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                                ₹{parseFloat(billAmount || "0").toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Billing Form */}
-                      <div className="pt-3 border-t border-white/10 space-y-3">
-                        <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                          <Receipt className="h-3.5 w-3.5 text-amber-400" /> Create Shop Bill & Debit Card
+                      {/* Right Column: Billing Inputs, Payment Options & Buyer OTP */}
+                      <div className="lg:col-span-7 space-y-5 bg-[#161616] border border-white/10 rounded-2xl p-5">
+                        <div className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/10 pb-3">
+                          <Receipt className="h-4 w-4 text-amber-400" /> Enter Sale & Payment Details
                         </div>
+
+                        {/* Bill Details */}
+                        <div className="space-y-3">
+                          <div>
+                            <Label className="text-xs text-gray-300 font-medium">Product / Service Description *</Label>
+                            <Input
+                              placeholder="e.g. 2 Bags NPK Fertilizer + Pesticides"
+                              value={billItem}
+                              onChange={(e) => setBillItem(e.target.value)}
+                              className="mt-1 bg-white/5 border-white/10 text-white text-xs"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-gray-300 font-medium">Bill Amount (₹) *</Label>
+                            <Input
+                              type="number"
+                              placeholder="e.g. 1450"
+                              value={billAmount}
+                              onChange={(e) => {
+                                setBillAmount(e.target.value);
+                                if (otpStep !== "idle") setOtpStep("idle");
+                              }}
+                              className="mt-1 bg-white/5 border-white/10 text-xs font-bold text-primary"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Payment Method Selector */}
                         <div>
-                          <Label className="text-[11px] text-gray-300">Product / Service Description</Label>
-                          <Input
-                            placeholder="e.g. 2 Bags NPK Fertilizer + Pesticides"
-                            value={billItem}
-                            onChange={(e) => setBillItem(e.target.value)}
-                            className="mt-1 bg-white/5 border-white/10 text-white text-xs"
-                          />
+                          <Label className="text-xs text-gray-300 font-bold uppercase tracking-wider mb-2 block">Select Payment Method</Label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {POS_PAYMENT_METHODS.map((method) => (
+                              <button
+                                key={method.id}
+                                type="button"
+                                onClick={() => {
+                                  setPosPaymentMethod(method.id);
+                                  if (otpStep !== "idle") setOtpStep("idle");
+                                }}
+                                className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer text-left ${
+                                  posPaymentMethod === method.id
+                                    ? method.color
+                                    : "border-white/10 bg-white/3 hover:border-white/20"
+                                }`}
+                              >
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 ${
+                                  posPaymentMethod === method.id ? "bg-black/30" : "bg-white/5"
+                                }`}>
+                                  {method.icon}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className={`text-xs font-bold truncate ${
+                                    posPaymentMethod === method.id ? method.activeText : "text-white"
+                                  }`}>
+                                    {method.label}
+                                  </div>
+                                  <div className="text-[10px] text-gray-400 truncate">{method.sub}</div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <div>
-                          <Label className="text-[11px] text-gray-300">Bill Amount (₹)</Label>
-                          <Input
-                            type="number"
-                            placeholder="e.g. 1450"
-                            value={billAmount}
-                            onChange={(e) => setBillAmount(e.target.value)}
-                            className="mt-1 bg-white/5 border-white/10 text-xs font-bold text-primary"
-                          />
-                        </div>
+
+                        {/* === BUYER OTP VERIFICATION SECTION === */}
+                        {(posPaymentMethod === "kcc" || posPaymentMethod === "wallet") && (
+                          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <KeyRound className="h-4 w-4 text-amber-400" />
+                                <span className="text-xs font-bold text-amber-300">Buyer OTP Authorization Security</span>
+                              </div>
+                              {otpStep === "verified" && (
+                                <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] font-bold">
+                                  ✓ OTP Verified
+                                </Badge>
+                              )}
+                            </div>
+
+                            <p className="text-[11px] text-gray-300">
+                              To debit money from <span className="text-white font-bold">{foundCardInfo.cardHolder}</span>'s account, an OTP must be verified from the buyer's phone.
+                            </p>
+
+                            {otpStep === "idle" && (
+                              <Button
+                                type="button"
+                                onClick={() => {
+                                  if (!billAmount || parseFloat(billAmount) <= 0 || !billItem.trim()) {
+                                    toast.error("Please enter product details and bill amount first");
+                                    return;
+                                  }
+                                  if (posPaymentMethod === "kcc" && parseFloat(billAmount) > (foundCardInfo?.balance || 0)) {
+                                    toast.error(`Insufficient KCC balance. Available: ₹${(foundCardInfo?.balance || 0).toLocaleString()}`);
+                                    return;
+                                  }
+                                  sendOtp();
+                                }}
+                                className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs py-2 rounded-xl"
+                              >
+                                <Smartphone className="h-4 w-4 mr-1.5" /> Send OTP to Buyer's Phone
+                              </Button>
+                            )}
+
+                            {otpStep === "sending" && (
+                              <div className="flex items-center justify-center gap-2 text-xs text-amber-300 py-2 font-medium">
+                                <Timer className="h-4 w-4 animate-spin" /> Sending 6-digit OTP to buyer's phone...
+                              </div>
+                            )}
+
+                            {(otpStep === "verify" || otpStep === "verified") && (
+                              <div className="space-y-2 pt-1 border-t border-amber-500/20">
+                                {otpStep === "verify" && (
+                                  <>
+                                    <div className="flex gap-2">
+                                      <Input
+                                        placeholder="Enter 6-digit OTP"
+                                        value={otpInput}
+                                        onChange={(e) => setOtpInput(e.target.value)}
+                                        maxLength={6}
+                                        className="bg-black/60 border-amber-500/40 text-white font-mono text-center tracking-widest text-sm"
+                                      />
+                                      <Button
+                                        type="button"
+                                        onClick={verifyOtp}
+                                        className="bg-primary text-black font-bold text-xs px-4"
+                                      >
+                                        Verify OTP
+                                      </Button>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[11px] text-gray-400">
+                                      <span>OTP sent to buyer</span>
+                                      <button
+                                        type="button"
+                                        disabled={otpTimer > 0}
+                                        onClick={sendOtp}
+                                        className="text-amber-400 hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
+                                      >
+                                        {otpTimer > 0 ? `Resend in ${otpTimer}s` : "Resend OTP"}
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* KCC insufficient balance warning */}
+                        {posPaymentMethod === "kcc" && billAmount && parseFloat(billAmount) > (foundCardInfo?.balance || 0) && (
+                          <div className="flex items-center gap-2 p-2.5 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400">
+                            <AlertCircle className="h-4 w-4 shrink-0" />
+                            Insufficient KCC balance. Available limit: ₹{(foundCardInfo?.balance || 0).toLocaleString()}
+                          </div>
+                        )}
+
+                        {/* Final Submit Button */}
                         <Button
+                          type="button"
                           onClick={() => {
                             const amt = parseFloat(billAmount);
                             if (!amt || amt <= 0) {
@@ -447,30 +827,27 @@ export default function WalletPage() {
                               toast.error("Please enter product details");
                               return;
                             }
-                            const res = chargeFarmerCard(searchCardNum, amt, billItem);
-                            if (res.success) {
-                              toast.success(res.message);
-                              setFoundCardInfo({
-                                ...foundCardInfo,
-                                balance: res.remainingBalance
-                              });
-                              setBillAmount("");
-                              setBillItem("");
-                            } else {
-                              toast.error(res.message);
+                            if (posPaymentMethod === "kcc" && amt > (foundCardInfo?.balance || 0)) {
+                              toast.error(`Insufficient KCC balance. Available limit: ₹${(foundCardInfo?.balance || 0).toLocaleString()}`);
+                              return;
                             }
+                            if ((posPaymentMethod === "kcc" || posPaymentMethod === "wallet") && otpStep !== "verified") {
+                              toast.error("Please send and verify Buyer OTP before debiting money.");
+                              return;
+                            }
+                            setShowPosPreview(true);
                           }}
-                          className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs py-2.5 rounded-xl shadow-lg"
+                          className="w-full bg-primary hover:bg-primary/90 text-black font-bold text-sm py-3.5 rounded-xl shadow-lg shadow-primary/20 transition-all cursor-pointer"
                         >
-                          Confirm & Debit ₹{billAmount || "0"} from Farmer's Card
+                          🧾 Preview & Generate Invoice (₹{billAmount || "0"})
                         </Button>
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
-                      <AlertCircle className="h-6 w-6 text-red-400 mx-auto mb-1" />
-                      <div className="text-sm font-bold text-red-400">Card Not Found</div>
-                      <div className="text-xs text-gray-400 mt-1">Please re-check card number with the farmer.</div>
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-center">
+                      <AlertCircle className="h-8 w-8 text-red-400 mx-auto mb-2" />
+                      <div className="text-base font-bold text-red-400">Card Not Found or Inactive</div>
+                      <div className="text-xs text-gray-400 mt-1">Please re-check the Kisan Credit Card number with the farmer.</div>
                     </div>
                   )}
                 </div>
@@ -479,6 +856,42 @@ export default function WalletPage() {
           </div>
         </div>
       )}
+
+      <FormPreviewModal
+        isOpen={showKccPreview}
+        onClose={() => setShowKccPreview(false)}
+        onConfirm={handleKccConfirm}
+        title="Farmer KCC Application Preview"
+        data={{
+          "Farmer Name": farmerForm.fullName,
+          "Contact Phone": farmerForm.phone,
+          "Aadhaar Number": farmerForm.aadhaar,
+          "Village/District": farmerForm.district || "N/A",
+          "Land Owned": farmerForm.landSize ? `${farmerForm.landSize} Acres` : "N/A",
+          "Full Address": farmerForm.address || "N/A"
+        }}
+        loading={loading}
+      />
+
+      <FormPreviewModal
+        isOpen={showPosPreview}
+        onClose={() => setShowPosPreview(false)}
+        onConfirm={handlePosConfirm}
+        title="POS Invoice Preview"
+        data={{
+          ...(posPaymentMethod === "kcc" ? {
+            "Customer / Card Holder": foundCardInfo?.cardHolder || "N/A",
+            "KCC Card Number": searchCardNum,
+          } : {
+            "Customer": "Walk-in Customer",
+          }),
+          "Billing Item": billItem,
+          "Total Amount": `₹${billAmount}`,
+          "Payment Method": POS_PAYMENT_METHODS.find(m => m.id === posPaymentMethod)?.label || posPaymentMethod,
+          "Processed By": user?.name || "Krivexa Dealer"
+        }}
+        loading={loading}
+      />
 
       <Footer />
     </div>

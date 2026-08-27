@@ -7,13 +7,16 @@ import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext.tsx";
+import FormPreviewModal from "@/components/FormPreviewModal.tsx";
+import { generateFormPdf } from "@/lib/pdfGenerator.ts";
 
 const ADMIN_PHONE = "8708742170";
 
 export default function ExpertAdvicePage() {
-  const { addExpertQuery, checkKccPermission, t } = useApp();
+  const { addExpertQuery, checkKccPermission, addNotification, user, t } = useApp();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [form, setForm] = useState({
     farmerName: "",
     phone: "",
@@ -29,8 +32,32 @@ export default function ExpertAdvicePage() {
       toast.error("Please fill all required fields.");
       return;
     }
+    setShowPreview(true);
+  };
+
+  const handleConfirmSubmit = () => {
+    setShowPreview(false);
     setLoading(true);
+
     setTimeout(() => {
+      const refId = `EXP-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      // Generate PDF
+      const { dataUrl, fileName } = generateFormPdf({
+        formTitle: "Expert Advice Request",
+        referenceId: refId,
+        userName: form.farmerName,
+        userPhone: form.phone,
+        userRole: user?.role === "farmer" ? "Farmer" : "Dealer",
+        details: {
+          "Farmer Name": form.farmerName,
+          "Contact Phone": form.phone,
+          "Crop Name": form.cropName,
+          "Problem Symptoms": form.problemDetails,
+          "Farmer Address": form.address || "Not Specified",
+        },
+      });
+
       addExpertQuery({
         farmerName: form.farmerName,
         phone: form.phone,
@@ -38,9 +65,22 @@ export default function ExpertAdvicePage() {
         cropName: form.cropName,
         problemDetails: form.problemDetails,
       });
+
+      // Send notification with PDF receipt
+      addNotification(
+        "Expert Query Received 🩺",
+        `Your expert query regarding ${form.cropName} is logged (Ref: ${refId}). Download official PDF report.`,
+        "success",
+        "/expert-advice",
+        "expert",
+        dataUrl,
+        fileName
+      );
+
       setLoading(false);
       setSubmitted(true);
-    }, 1200);
+      toast.success("Expert query submitted successfully!");
+    }, 1000);
   };
 
   const handleCall = () => {
@@ -174,6 +214,21 @@ export default function ExpertAdvicePage() {
           )}
         </div>
       </div>
+
+      <FormPreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        onConfirm={handleConfirmSubmit}
+        title="Expert Advice Request Preview"
+        data={{
+          "Farmer Name": form.farmerName,
+          "Contact Phone": form.phone,
+          "Farmer Address": form.address || "N/A",
+          "Crop Affected": form.cropName,
+          "Details of Problem": form.problemDetails,
+        }}
+        loading={loading}
+      />
 
       <Footer />
     </div>

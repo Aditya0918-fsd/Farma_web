@@ -28,6 +28,7 @@ import NotificationsPage from "./pages/notifications/page.tsx";
 
 import MachineryBookingPage from "./pages/machinery-booking/page.tsx";
 import ProfilePage from "./pages/profile/page.tsx";
+import CartPage from "./pages/cart/page.tsx";
 
 function AppInner() {
   useServiceWorker();
@@ -43,6 +44,7 @@ function AppInner() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/cart" element={<CartPage />} />
           <Route path="/machinery-booking" element={<MachineryBookingPage />} />
           <Route path="/mandi-bhav" element={<MandiBhavPage />} />
           <Route path="/agri-market" element={<AgriMarketPage />} />

@@ -8,12 +8,15 @@ import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext.tsx";
+import FormPreviewModal from "@/components/FormPreviewModal.tsx";
+import { generateFormPdf } from "@/lib/pdfGenerator.ts";
 
 export default function LabourBookingPage() {
-  const { labourTypes, addLabourBooking, labourBookings, checkKccPermission, t } = useApp();
+  const { labourTypes, addLabourBooking, labourBookings, checkKccPermission, addNotification, user, t } = useApp();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [numDays, setNumDays] = useState<string>("");
+  const [showPreview, setShowPreview] = useState(false);
   const [form, setForm] = useState({
     labourType: "",
     count: "",
@@ -32,8 +35,35 @@ export default function LabourBookingPage() {
       toast.error("Please fill in all required fields.");
       return;
     }
+    setShowPreview(true);
+  };
+
+  const handleConfirmSubmit = () => {
+    setShowPreview(false);
     setLoading(true);
+
     setTimeout(() => {
+      const refId = `LAB-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      // Generate PDF
+      const { dataUrl, fileName } = generateFormPdf({
+        formTitle: "Labour Booking Confirmation",
+        referenceId: refId,
+        userName: form.userName,
+        userPhone: form.phone,
+        userRole: user?.role === "farmer" ? "Farmer" : "Dealer",
+        details: {
+          "Client Name": form.userName,
+          "Contact Phone": form.phone,
+          "Labour Type Needed": form.labourType,
+          "Number of Workers": `${form.count} Person(s)`,
+          "Duration of Booking": `${form.days} Days`,
+          "Start Date": form.startDate || "As soon as possible",
+          "End Date": form.endDate || "N/A",
+          "Work Location": form.location,
+        },
+      });
+
       addLabourBooking({
         userName: form.userName,
         phone: form.phone,
@@ -44,9 +74,22 @@ export default function LabourBookingPage() {
         endDate: form.endDate,
         location: form.location,
       });
+
+      // Send notification with PDF receipt
+      addNotification(
+        "Labour Booking Requested 👷‍♂️",
+        `Booking request for ${form.count} ${form.labourType} workers has been submitted (Ref: ${refId}). Download PDF receipt.`,
+        "success",
+        "/labour-booking",
+        "labour",
+        dataUrl,
+        fileName
+      );
+
       setLoading(false);
       setSubmitted(true);
-    }, 1200);
+      toast.success("Labour booking request submitted successfully!");
+    }, 1000);
   };
 
   const userBookings = labourBookings.slice(0, 3); // show recent
@@ -216,6 +259,24 @@ export default function LabourBookingPage() {
           )}
         </div>
       </div>
+
+      <FormPreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        onConfirm={handleConfirmSubmit}
+        title="Labour Booking Preview"
+        data={{
+          "Client Name": form.userName,
+          "Contact Phone": form.phone,
+          "Labour Category": form.labourType,
+          "Number of Workers": form.count,
+          "Days Needed": form.days,
+          "Start Date": form.startDate || "Immediate",
+          "End Date": form.endDate || "N/A",
+          "Service Location": form.location,
+        }}
+        loading={loading}
+      />
 
       <Footer />
     </div>

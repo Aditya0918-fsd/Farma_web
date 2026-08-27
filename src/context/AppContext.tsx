@@ -110,6 +110,30 @@ export interface MachineryBookingRequest {
   createdAt: string;
 }
 
+export interface CartItem {
+  id: string;
+  productId: string;
+  name: string;
+  category?: string;
+  price: number;
+  unit?: string;
+  image?: string;
+  quantity: number;
+  sellerName?: string;
+}
+
+export interface CartOrder {
+  id: string;
+  userId: string;
+  userName: string;
+  items: CartItem[];
+  totalAmount: number;
+  paymentMethod: "kcc" | "upi" | "cod" | "wallet";
+  deliveryAddress: string;
+  status: "Confirmed" | "Processing" | "Delivered";
+  createdAt: string;
+}
+
 export interface UserNotification {
   id: string;
   title: string;
@@ -118,7 +142,9 @@ export interface UserNotification {
   read: boolean;
   type?: "info" | "success" | "warning";
   link?: string;
-  category?: "crops" | "labour" | "expert" | "wallet" | "kcc" | "account" | "mandi" | "machinery";
+  category?: "crops" | "labour" | "expert" | "wallet" | "kcc" | "account" | "mandi" | "machinery" | "orders" | "soil";
+  pdfDataUrl?: string;
+  pdfFileName?: string;
 }
 
 interface AppContextType {
@@ -139,6 +165,15 @@ interface AppContextType {
   checkKccPermission: (actionName?: string) => boolean;
   submitKccApplication: (appData: Omit<KccApplication, "id" | "status" | "createdAt">) => void;
   toggleKccDemoStatus: () => void;
+
+  // Cart & Orders System
+  cart: CartItem[];
+  addToCart: (item: { id: string; name: string; category?: string; price: number; unit?: string; image?: string; sellerName?: string }) => void;
+  removeFromCart: (id: string) => void;
+  updateCartQuantity: (id: string, quantity: number) => void;
+  clearCart: () => void;
+  checkoutCart: (paymentMethod: "kcc" | "upi" | "cod" | "wallet", deliveryAddress: string) => { success: boolean; message: string; orderId?: string };
+  orders: CartOrder[];
 
   // Admin Auth
   isAdminLoggedIn: boolean;
@@ -188,7 +223,15 @@ interface AppContextType {
   markAllNotificationsAsRead: () => void;
   deleteNotification: (id: string) => void;
   clearAllNotifications: () => void;
-  addNotification: (title: string, message: string, type?: "info" | "success" | "warning", link?: string, category?: UserNotification["category"]) => void;
+  addNotification: (
+    title: string,
+    message: string,
+    type?: "info" | "success" | "warning",
+    link?: string,
+    category?: UserNotification["category"],
+    pdfDataUrl?: string,
+    pdfFileName?: string
+  ) => void;
 
   // KCC Applications for Admin & Dealer KCC Apply
   kccApplications: KccApplication[];
@@ -742,9 +785,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser((prev) => (prev ? { ...prev, ...updated } : null));
   };
 
-  const addNotification = (title: string, message: string, type: "info" | "success" | "warning" = "info", link?: string, category?: UserNotification["category"]) => {
+  const addNotification = (
+    title: string,
+    message: string,
+    type: "info" | "success" | "warning" = "info",
+    link?: string,
+    category?: UserNotification["category"],
+    pdfDataUrl?: string,
+    pdfFileName?: string
+  ) => {
     const newNotif: UserNotification = {
-      id: `notif-${Date.now()}`,
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       title,
       message,
       time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
@@ -752,6 +803,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       type,
       link,
       category,
+      pdfDataUrl,
+      pdfFileName,
     };
     setNotifications((prev) => [newNotif, ...prev]);
   };
@@ -853,6 +906,115 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
+  // Cart & Order State Management (Personal per user)
+  const cartStorageKey = user ? `krivexa_cart_${user.phone || user.id}` : "krivexa_cart_guest";
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const saved = localStorage.getItem(cartStorageKey);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [orders, setOrders] = useState<CartOrder[]>(() => {
+    const saved = localStorage.getItem("krivexa_cart_orders");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    const saved = localStorage.getItem(cartStorageKey);
+    setCart(saved ? JSON.parse(saved) : []);
+  }, [cartStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(cartStorageKey, JSON.stringify(cart));
+  }, [cart, cartStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem("krivexa_cart_orders", JSON.stringify(orders));
+  }, [orders]);
+
+  const addToCart = (item: { id: string; name: string; category?: string; price: number; unit?: string; image?: string; sellerName?: string }) => {
+    setCart((prev) => {
+      const existing = prev.find((i) => i.productId === item.id);
+      if (existing) {
+        return prev.map((i) => (i.productId === item.id ? { ...i, quantity: i.quantity + 1 } : i));
+      }
+      return [
+        ...prev,
+        {
+          id: `cart-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          productId: item.id,
+          name: item.name,
+          category: item.category,
+          price: item.price,
+          unit: item.unit,
+          image: item.image,
+          quantity: 1,
+          sellerName: item.sellerName,
+        },
+      ];
+    });
+  };
+
+  const removeFromCart = (id: string) => {
+    setCart((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  const updateCartQuantity = (id: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeFromCart(id);
+      return;
+    }
+    setCart((prev) => prev.map((i) => (i.id === id ? { ...i, quantity } : i)));
+  };
+
+  const clearCart = () => {
+    setCart([]);
+  };
+
+  const checkoutCart = (paymentMethod: "kcc" | "upi" | "cod" | "wallet", deliveryAddress: string) => {
+    if (cart.length === 0) {
+      return { success: false, message: "Your cart is empty!" };
+    }
+    const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    if (paymentMethod === "kcc") {
+      const kccCard = kccDetails?.cardNumber || "KCC-BH-2026-9041";
+      const chargeRes = chargeFarmerCard(kccCard, totalAmount, `Order of ${cart.length} items`);
+      if (!chargeRes.success) {
+        return chargeRes;
+      }
+    }
+
+    const orderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
+    const newOrder: CartOrder = {
+      id: orderId,
+      userId: user?.id || "guest",
+      userName: user?.name || "Customer",
+      items: [...cart],
+      totalAmount,
+      paymentMethod,
+      deliveryAddress,
+      status: "Confirmed",
+      createdAt: new Date().toISOString(),
+    };
+
+    setOrders((prev) => [newOrder, ...prev]);
+    clearCart();
+
+    addNotification(
+      "Order Placed Successfully! 🛒",
+      `Order ${orderId} for ₹${totalAmount} has been placed. Items will be delivered to ${deliveryAddress || "your registered address"}.`,
+      "success",
+      "/cart",
+      "orders"
+    );
+
+    return {
+      success: true,
+      message: `Order ${orderId} placed successfully!`,
+      orderId,
+    };
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -871,6 +1033,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         checkKccPermission,
         submitKccApplication,
         toggleKccDemoStatus,
+
+        cart,
+        addToCart,
+        removeFromCart,
+        updateCartQuantity,
+        clearCart,
+        checkoutCart,
+        orders,
 
         isAdminLoggedIn,
         adminLogin,

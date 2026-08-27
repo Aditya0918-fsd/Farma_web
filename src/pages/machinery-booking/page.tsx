@@ -8,6 +8,8 @@ import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
 import { useApp } from "@/context/AppContext.tsx";
 import { toast } from "sonner";
+import FormPreviewModal from "@/components/FormPreviewModal.tsx";
+import { generateFormPdf } from "@/lib/pdfGenerator.ts";
 
 const MACHINERY_OPTIONS = [
   "Tractor (45 HP)",
@@ -19,7 +21,7 @@ const MACHINERY_OPTIONS = [
 ];
 
 export default function MachineryBookingPage() {
-  const { user, machineryBookings, addMachineryBooking } = useApp();
+  const { user, machineryBookings, addMachineryBooking, addNotification } = useApp();
 
   const [selectedMachine, setSelectedMachine] = useState<string>("Tractor (45 HP)");
   const [userName, setUserName] = useState(user?.name || "Ram Das");
@@ -34,6 +36,9 @@ export default function MachineryBookingPage() {
     if (user?.village && user?.district) return `${user.village}, ${user.district}`;
     return "Rajpur, Varanasi";
   });
+  
+  const [showPreview, setShowPreview] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,17 +46,56 @@ export default function MachineryBookingPage() {
       toast.error("Please fill in all required booking details.");
       return;
     }
+    setShowPreview(true);
+  };
 
-    addMachineryBooking({
-      userName,
-      phone,
-      machineryType: selectedMachine,
-      bookingDate,
-      durationHours: Number(durationHours) || 4,
-      location,
-    });
+  const handleConfirmSubmit = () => {
+    setShowPreview(false);
+    setLoading(true);
 
-    toast.success("Machinery booking request submitted! Admin will allot machine soon.");
+    setTimeout(() => {
+      const refId = `MAC-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      // Generate PDF
+      const { dataUrl, fileName } = generateFormPdf({
+        formTitle: "Machinery Booking Request",
+        referenceId: refId,
+        userName,
+        userPhone: phone,
+        userRole: user?.role === "farmer" ? "Farmer" : "Dealer",
+        details: {
+          "Applicant Name": userName,
+          "Contact Phone": phone,
+          "Requested Equipment": selectedMachine,
+          "Booking Date": bookingDate,
+          "Duration Hours": `${durationHours} Hour(s)`,
+          "Field Location": location,
+        },
+      });
+
+      addMachineryBooking({
+        userName,
+        phone,
+        machineryType: selectedMachine,
+        bookingDate,
+        durationHours: Number(durationHours) || 4,
+        location,
+      });
+
+      // Send notification with PDF receipt
+      addNotification(
+        "Machinery Booking Request Submitted 🚜",
+        `Your request for booking ${selectedMachine} has been registered (Ref: ${refId}). Download PDF receipt.`,
+        "success",
+        "/machinery-booking",
+        "machinery",
+        dataUrl,
+        fileName
+      );
+
+      setLoading(false);
+      toast.success("Machinery booking request submitted! Admin will allot machine soon.");
+    }, 1000);
   };
 
   return (
@@ -246,6 +290,22 @@ export default function MachineryBookingPage() {
 
         </div>
       </div>
+
+      <FormPreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        onConfirm={handleConfirmSubmit}
+        title="Machinery Booking Request Preview"
+        data={{
+          "Equipment Request": selectedMachine,
+          "Operator/Applicant": userName,
+          "Contact Phone": phone,
+          "Required Date": bookingDate,
+          "Booking Duration": `${durationHours} Hour(s)`,
+          "Field Address": location,
+        }}
+        loading={loading}
+      />
 
       <Footer />
     </div>

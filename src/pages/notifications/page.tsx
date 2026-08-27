@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Bell, Trash2, CheckCheck, Filter, X, ChevronRight,
   Sprout, Users, BookOpen, Wallet, CreditCard, TrendingUp, UserCheck,
-  BellOff, ArrowLeft
+  BellOff, ArrowLeft, FileDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import Navbar from "@/components/Navbar.tsx";
@@ -223,7 +223,7 @@ export default function NotificationsPage() {
                     <p className="text-xs text-gray-400 leading-relaxed">{n.message}</p>
 
                     {/* Category + link badge */}
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-2 flex-wrap mt-2">
                       {n.category && (
                         <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full border", cat.bg, cat.color)}>
                           {cat.label}
@@ -232,10 +232,26 @@ export default function NotificationsPage() {
                       <Link
                         to={dest}
                         onClick={(e) => { e.stopPropagation(); markNotificationAsRead(n.id); }}
-                        className="text-[10px] text-primary/70 hover:text-primary flex items-center gap-0.5 font-medium transition-colors"
+                        className="text-[10px] text-primary/70 hover:text-primary flex items-center gap-0.5 font-medium transition-colors mr-2"
                       >
                         View details <ChevronRight className="h-3 w-3" />
                       </Link>
+
+                      {n.pdfDataUrl && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markNotificationAsRead(n.id);
+                            import("@/lib/pdfGenerator").then(({ downloadPdf }) => {
+                              downloadPdf(n.pdfDataUrl!, n.pdfFileName || "receipt.pdf");
+                            });
+                          }}
+                          className="flex items-center gap-1 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary text-[10px] py-0.5 px-2 rounded-full font-bold transition-all cursor-pointer"
+                        >
+                          <FileDown className="h-3 w-3" /> Download Receipt (PDF)
+                        </button>
+                      )}
                     </div>
                   </div>
 
