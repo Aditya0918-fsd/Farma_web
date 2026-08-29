@@ -4,12 +4,19 @@ import { motion } from "motion/react";
 import {
   TrendingUp, ShoppingCart, Users, MessageSquare, CloudSun, Wallet,
   ChevronRight, Star, Shield, CheckCircle, ArrowRight, Package, Leaf,
-  CreditCard, Sprout, Tractor, FlaskConical
+  CreditCard, Sprout, Tractor, FlaskConical, Plus, Search, UserPlus,
+  ShieldCheck, Receipt, Download, Lock, Send, PackageCheck, CheckCircle2, X,
+  Upload, Camera, Trash2, User
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { Label } from "@/components/ui/label.tsx";
+import { Badge } from "@/components/ui/badge.tsx";
 import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
 import { useApp } from "@/context/AppContext.tsx";
+import { toast } from "sonner";
+import { generateFormPdf, downloadPdf } from "@/lib/pdfGenerator.ts";
 
 const TESTIMONIALS = [
   { name: "Ramesh Yadav", location: "Patna, Bihar", text: "Krivexa has changed the way I farm. I now sell my crops at better prices and can book labour with just one tap.", stars: 5 },
@@ -18,7 +25,11 @@ const TESTIMONIALS = [
 ];
 
 export default function Index() {
-  const { t, user, setIsKccAppModalOpen, hasAppliedKcc } = useApp();
+  const {
+    t, user, setIsKccAppModalOpen, hasAppliedKcc,
+    dealerApplyFarmerKcc, chargeFarmerCard, addDealerListing,
+    registerFarmerByDealer, checkKccStatusByPhoneAadhaar, getFarmerProfileByDetails
+  } = useApp();
 
   const [selectedFeature, setSelectedFeature] = useState<{
     icon: any;
@@ -32,6 +43,293 @@ export default function Index() {
       howItWorks: string[];
     };
   } | null>(null);
+
+  // Customer Services Modal state
+  const [isCustomerServicesModalOpen, setIsCustomerServicesModalOpen] = useState(false);
+  const [customerServiceTab, setCustomerServiceTab] = useState<"check" | "apply" | "register" | "pos">("check");
+
+  // Check KCC State
+  const [checkPhone, setCheckPhone] = useState("");
+  const [checkAadhaar, setCheckAadhaar] = useState("");
+  const [checkCardNum, setCheckCardNum] = useState("");
+  const [checkResult, setCheckResult] = useState<any>(null);
+
+  // Apply KCC State
+  const [applyName, setApplyName] = useState("");
+  const [applyPhone, setApplyPhone] = useState("");
+  const [applyAadhaar, setApplyAadhaar] = useState("");
+  const [applyAddress, setApplyAddress] = useState("");
+  const [applyDistrict, setApplyDistrict] = useState("Patna");
+  const [applyLand, setApplyLand] = useState("");
+  const [applyPdfInfo, setApplyPdfInfo] = useState<{ dataUrl: string; fileName: string } | null>(null);
+
+  // New Farmer Registration State
+  const [regName, setRegName] = useState("");
+  const [regPhone, setRegPhone] = useState("");
+  const [regAadhaar, setRegAadhaar] = useState("");
+  const [regVillage, setRegVillage] = useState("");
+  const [regDistrict, setRegDistrict] = useState("Patna");
+  const [regState, setRegState] = useState("Bihar");
+  const [regPincode, setRegPincode] = useState("");
+  const [regLand, setRegLand] = useState("");
+  const [regPdfInfo, setRegPdfInfo] = useState<{ dataUrl: string; fileName: string } | null>(null);
+
+  // Farmers KCC POS Billing State
+  const [posQueryNum, setPosQueryNum] = useState("");
+  const [posQueryAadhaar, setPosQueryAadhaar] = useState("");
+  const [posQueryPhone, setPosQueryPhone] = useState("");
+  const [posFarmerProfile, setPosFarmerProfile] = useState<any>(null);
+  const [posAmount, setPosAmount] = useState("");
+  const [posItemDesc, setPosItemDesc] = useState("");
+  const [posOtpModal, setPosOtpModal] = useState(false);
+  const [posGeneratedOtp, setPosGeneratedOtp] = useState("");
+  const [posInputOtp, setPosInputOtp] = useState("");
+  const [posReceiptPdf, setPosReceiptPdf] = useState<{ dataUrl: string; fileName: string } | null>(null);
+
+  // Add Listing Modal state
+  const [isAddListingModalOpen, setIsAddListingModalOpen] = useState(false);
+  const [listingType, setListingType] = useState<"product" | "machinery" | "labour">("product");
+
+  const [listTitle, setListTitle] = useState("");
+  const [listCategory, setListCategory] = useState("Seeds");
+  const [listPrice, setListPrice] = useState("");
+  const [listUnit, setListUnit] = useState("5 kg bag");
+  const [listDesc, setListDesc] = useState("");
+  const [listImg, setListImg] = useState("");
+  const [listSpecs, setListSpecs] = useState("");
+  const [listLocation, setListLocation] = useState("Patna, Bihar");
+  const [listWorkerCount, setListWorkerCount] = useState("5");
+
+  // Handlers for Customer Services
+  const handleCheckKccStatus = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!checkPhone.trim() && !checkAadhaar.trim() && !checkCardNum.trim()) {
+      toast.error("Please enter Mobile Number, Aadhaar Number, OR KCC Card Number");
+      return;
+    }
+    const res = checkKccStatusByPhoneAadhaar(checkPhone, checkAadhaar, checkCardNum);
+    setCheckResult(res);
+    if (res) toast.success("KCC Record found!");
+    else toast.info("No active KCC record found for this criteria.");
+  };
+
+  const handleDealerApplyKccSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!applyName || !applyPhone || !applyAadhaar) {
+      toast.error("Please fill in Name, Phone, and Aadhaar");
+      return;
+    }
+    dealerApplyFarmerKcc({
+      fullName: applyName,
+      phone: applyPhone,
+      aadhaar: applyAadhaar,
+      address: applyAddress,
+      district: applyDistrict,
+      landSize: applyLand || "2.5"
+    });
+
+    const refId = `KCC-APP-${Math.floor(100000 + Math.random() * 900000)}`;
+    toast.success(`KCC Application Submitted! Ref: ${refId}`);
+
+    const pdf = generateFormPdf({
+      formTitle: "Kisan Credit Card (KCC) Application Slip",
+      referenceId: refId,
+      userName: applyName,
+      userPhone: applyPhone,
+      details: {
+        "Application ID": refId,
+        "Applicant Name": applyName,
+        "Mobile Number": applyPhone,
+        "Aadhaar Number": applyAadhaar,
+        "Land Size": `${applyLand || "2.5"} Acres`,
+        "District": applyDistrict,
+        "Submission Date": new Date().toLocaleDateString("en-IN"),
+        "Status": "PENDING ADMIN APPROVAL"
+      }
+    });
+
+    setApplyPdfInfo({ dataUrl: pdf.dataUrl, fileName: pdf.fileName });
+  };
+
+  const handleNewFarmerRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regName || !regPhone || !regAadhaar) {
+      toast.error("Please fill Name, Phone and Aadhaar number");
+      return;
+    }
+    const res = registerFarmerByDealer({
+      name: regName,
+      phone: regPhone,
+      aadhaar: regAadhaar,
+      village: regVillage,
+      district: regDistrict,
+      state: regState,
+      pincode: regPincode,
+      landSize: regLand,
+      registeredByDealer: user?.name || "Verified Dealer"
+    });
+    toast.success(`Farmer Registered! Account ID: ${res.id}`);
+
+    const pdf = generateFormPdf({
+      formTitle: "Official Farmer Registration Certificate",
+      referenceId: res.id,
+      userName: res.name,
+      userPhone: res.phone,
+      details: {
+        "Farmer ID": res.id,
+        "Full Name": res.name,
+        "Phone Number": res.phone,
+        "Aadhaar Card": res.aadhaar,
+        "Village": res.village || "N/A",
+        "District": res.district,
+        "State": res.state,
+        "Registered By Dealer": res.registeredByDealer,
+        "Registration Date": new Date().toLocaleDateString("en-IN")
+      }
+    });
+
+    setRegPdfInfo({ dataUrl: pdf.dataUrl, fileName: pdf.fileName });
+  };
+
+  const handleLookupFarmerPos = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!posQueryNum.trim() && !posQueryAadhaar.trim() && !posQueryPhone.trim()) {
+      toast.error("Enter KCC Card Number, Aadhaar, OR Phone Number to search");
+      return;
+    }
+    const res = getFarmerProfileByDetails({
+      kccNum: posQueryNum,
+      aadhaar: posQueryAadhaar,
+      phone: posQueryPhone,
+    });
+    if (!res || !res.exists) {
+      toast.error("No registered farmer/KCC card found matching search");
+      setPosFarmerProfile(null);
+      return;
+    }
+    const profile = {
+      name: res.profile?.name || "Farmer",
+      cardNumber: res.profile?.cardNumber || "KCC-BH-2026-9041",
+      phone: res.profile?.phone || "9876543210",
+      aadhaar: res.profile?.aadhaar || "1234-5678-9012",
+      kccBalance: res.cardInfo?.balance || 25000,
+    };
+    setPosFarmerProfile(profile);
+    toast.success(`Farmer Profile Loaded: ${profile.name}`);
+  };
+
+  const handleInitiatePosBilling = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!posFarmerProfile) {
+      toast.error("Please search and select a farmer profile first");
+      return;
+    }
+    const amt = parseFloat(posAmount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error("Please enter a valid billing amount");
+      return;
+    }
+    if (amt > posFarmerProfile.kccBalance) {
+      toast.error(`Insufficient KCC limit! Available: ₹${posFarmerProfile.kccBalance.toLocaleString()}`);
+      return;
+    }
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    setPosGeneratedOtp(otp);
+    setPosOtpModal(true);
+    toast.info(`OTP generated for farmer authorization: ${otp}`);
+  };
+
+  const handleVerifyOtpAndChargePos = () => {
+    if (posInputOtp.trim() !== posGeneratedOtp.trim()) {
+      toast.error("Invalid OTP entered. Please check and try again.");
+      return;
+    }
+    const amt = parseFloat(posAmount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error("Please enter a valid billing amount");
+      return;
+    }
+    const cardNum = posFarmerProfile?.cardNumber || posQueryNum || "KCC-BH-2026-9041";
+    const chargeRes = chargeFarmerCard(cardNum, amt, posItemDesc || "Agri POS Store Purchase");
+    if (!chargeRes || !chargeRes.success) {
+      toast.error(chargeRes?.message || "Transaction failed.");
+      return;
+    }
+
+    const txId = `POS-TX-${Math.floor(100000 + Math.random() * 900000)}`;
+    const remainingLim = chargeRes.remainingBalance ?? (posFarmerProfile?.kccBalance ? posFarmerProfile.kccBalance - amt : 0);
+
+    const pdf = generateFormPdf({
+      formTitle: "KCC POS Transaction Billing Receipt",
+      referenceId: txId,
+      userName: posFarmerProfile?.name || "Farmer",
+      userPhone: posFarmerProfile?.phone || "N/A",
+      userRole: "Farmer",
+      details: {
+        "Transaction ID": txId,
+        "Farmer Name": posFarmerProfile?.name || "Farmer",
+        "KCC Card Number": cardNum,
+        "Phone Number": posFarmerProfile?.phone || "N/A",
+        "Item Description": posItemDesc || "Agri Inputs POS Purchase",
+        "Amount Charged": `₹${amt.toLocaleString()}`,
+        "Remaining KCC Limit": `₹${remainingLim.toLocaleString()}`,
+        "Transaction Date": new Date().toLocaleString("en-IN"),
+        "Authorized Dealer": user?.name || "Authorized Dealer"
+      }
+    });
+
+    setPosReceiptPdf({ dataUrl: pdf.dataUrl, fileName: pdf.fileName });
+    setPosOtpModal(false);
+    setPosFarmerProfile((prev: any) => prev ? { ...prev, kccBalance: remainingLim } : null);
+    setPosAmount("");
+    setPosItemDesc("");
+    setPosInputOtp("");
+    toast.success("POS Billing Successful! Receipt generated.");
+  };
+
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 8 * 1024 * 1024) {
+        toast.error("Image file size should be less than 8MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setListImg(reader.result as string);
+        toast.success("Image attached successfully!");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddListingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!listTitle || !listPrice) {
+      toast.error("Please enter Title and Price / Wage Rate");
+      return;
+    }
+    addDealerListing({
+      dealerId: user?.id || "usr-dealer",
+      dealerName: user?.name || "Dealer",
+      type: listingType,
+      title: listTitle,
+      category: listCategory,
+      price: parseFloat(listPrice) || 0,
+      unit: listUnit,
+      description: listDesc,
+      image: listImg || (listingType === "product" ? "https://images.unsplash.com/photo-1592417817098-8f3d6ef23a85?w=500&q=80" : listingType === "machinery" ? "https://images.unsplash.com/photo-1530267981608-bc34199c9c30?w=400&q=80" : "https://images.unsplash.com/photo-1595273670150-bd0c3c392e46?w=400&q=80"),
+      specifications: listSpecs,
+      location: listLocation,
+      workerCount: listingType === "labour" ? 1 : undefined
+    });
+    toast.success("Listing submitted for Admin Approval!");
+    setIsAddListingModalOpen(false);
+    setListTitle("");
+    setListPrice("");
+    setListDesc("");
+    setListImg("");
+  };
 
   const FEATURE_DETAILS: Record<string, { overview: string; keyBenefits: string[]; howItWorks: string[] }> = {
     "Live Mandi Bhav": {
@@ -131,6 +429,34 @@ export default function Index() {
         "Review agricultural advisory notes provided for current weather",
         "Adjust irrigation and harvest schedules accordingly"
       ]
+    },
+    "Customer Services": {
+      overview: "Comprehensive customer services portal for checking farmer KCC card eligibility, submitting new KCC applications with downloadable PDF receipts, registering new farmer accounts, and processing KCC POS billing with SMS OTP verification.",
+      keyBenefits: [
+        "Instant KCC status lookup via Phone or Aadhaar",
+        "KCC application submission & PDF receipt",
+        "Instant New Farmer account registration with certificate",
+        "Secure KCC card POS billing with 4-digit OTP"
+      ],
+      howItWorks: [
+        "Select the required customer service tab",
+        "Enter farmer details or card identification number",
+        "Complete OTP verification for POS billing or download official PDF document"
+      ]
+    },
+    "Add Products or Services": {
+      overview: "Empowers dealers and farmers to submit agricultural products (seeds, fertilizers, tools), machinery fleet rentals, or labour team availability for Admin review and direct marketplace listing.",
+      keyBenefits: [
+        "Direct listing of fertilizers, certified seeds, and tools",
+        "List tractors and machinery fleet for rental income",
+        "Register available farm worker teams",
+        "Admin approved for trusted buyer visibility"
+      ],
+      howItWorks: [
+        "Choose listing type (Product, Machinery, or Labour)",
+        "Fill pricing, location, unit, and feature specifications",
+        "Submit listing for quick Admin approval to appear live across Bihar"
+      ]
     }
   };
 
@@ -143,6 +469,8 @@ export default function Index() {
     { icon: MessageSquare, label: t.services.expertAdviceTitle, desc: t.services.expertAdviceDesc, href: "/expert-advice" },
     { icon: CloudSun, label: t.services.weatherTitle, desc: t.services.weatherDesc, href: "/weather" },
     { icon: Wallet, label: t.services.walletTitle, desc: t.services.walletDesc, href: "/wallet" },
+    { icon: ShieldCheck, label: "Customer Services", desc: "KCC, Registration & POS Billing", action: () => setIsCustomerServicesModalOpen(true) },
+    { icon: Plus, label: "Add Products/Services", desc: "List products, machinery & labour", action: () => setIsAddListingModalOpen(true) },
   ];
 
   const FEATURES = [
@@ -153,6 +481,8 @@ export default function Index() {
     { icon: Users, title: t.farmerNeeds.f4Title, desc: t.farmerNeeds.f4Desc, href: "/labour-booking", badge: t.farmerNeeds.f4Badge },
     { icon: MessageSquare, title: t.farmerNeeds.f5Title, desc: t.farmerNeeds.f5Desc, href: "/expert-advice", badge: t.farmerNeeds.f5Badge },
     { icon: CloudSun, title: t.farmerNeeds.f6Title, desc: t.farmerNeeds.f6Desc, href: "/weather", badge: t.farmerNeeds.f6Badge },
+    { icon: ShieldCheck, title: "Customer Services", desc: "KCC Status, Farmer Registration & POS Billing", href: "#", badge: "New Hub", action: () => setIsCustomerServicesModalOpen(true) },
+    { icon: Plus, title: "Add Products or Services", desc: "Submit product listings, machinery fleet & worker teams", href: "#", badge: "Dealer Tool", action: () => setIsAddListingModalOpen(true) },
   ];
 
   const STATS = [
@@ -245,27 +575,42 @@ export default function Index() {
             </h2>
             <p className="text-gray-400 text-sm">{t.services.subtitle}</p>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
             {SERVICES.map((s, i) => (
               <motion.div
                 key={s.label}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.05 }}
+                transition={{ delay: i * 0.04 }}
               >
-                <Link
-                  to={s.href}
-                  className="flex flex-col items-center gap-2 p-3 rounded-xl bg-[#111] border border-white/10 hover:border-primary/40 transition-all group cursor-pointer hover:bg-primary/5 hover:-translate-y-1"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                    <s.icon className="h-6 w-6 text-primary" />
+                {s.action ? (
+                  <div
+                    onClick={s.action}
+                    className="flex flex-col items-center gap-2 p-3.5 rounded-2xl bg-[#111] border border-white/10 hover:border-primary/50 hover:bg-primary/5 transition-all group cursor-pointer hover:-translate-y-1 h-full justify-between"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-colors text-primary">
+                      <s.icon className="h-6 w-6" />
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs font-bold text-white leading-tight mb-0.5 group-hover:text-primary transition-colors">{s.label}</div>
+                      <div className="text-[10px] text-gray-400 leading-tight">{s.desc}</div>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-xs font-bold text-white leading-tight mb-0.5">{s.label}</div>
-                    <div className="text-[10px] text-gray-500 leading-tight">{s.desc}</div>
-                  </div>
-                </Link>
+                ) : (
+                  <Link
+                    to={s.href}
+                    className="flex flex-col items-center gap-2 p-3.5 rounded-2xl bg-[#111] border border-white/10 hover:border-primary/50 hover:bg-primary/5 transition-all group cursor-pointer hover:-translate-y-1 h-full justify-between"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-colors text-primary">
+                      <s.icon className="h-6 w-6" />
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs font-bold text-white leading-tight mb-0.5 group-hover:text-primary transition-colors">{s.label}</div>
+                      <div className="text-[10px] text-gray-400 leading-tight">{s.desc}</div>
+                    </div>
+                  </Link>
+                )}
               </motion.div>
             ))}
           </div>
@@ -294,10 +639,14 @@ export default function Index() {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.05 }}
+                transition={{ delay: i * 0.04 }}
               >
                 <div
                   onClick={() => {
+                    if (f.action) {
+                      f.action();
+                      return;
+                    }
                     const details = FEATURE_DETAILS[f.title] || {
                       overview: f.desc,
                       keyBenefits: ["Direct access to services", "Verified transparency", "Designed for farmers"],
@@ -525,6 +874,503 @@ export default function Index() {
         </div>
       </section>
 
+      {/* === CUSTOMER SERVICES MODAL === */}
+      {isCustomerServicesModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 relative shadow-2xl animate-in fade-in zoom-in-95">
+            <button
+              onClick={() => setIsCustomerServicesModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-full p-2"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Customer Services Portal</h2>
+                <p className="text-xs text-gray-400">KCC applications, farmer registration, status lookup & POS billing</p>
+              </div>
+            </div>
+
+            {/* Modal Subtabs */}
+            <div className="flex flex-wrap gap-2 border-b border-white/10 pb-4 mb-6">
+              <Button
+                variant={customerServiceTab === "check" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setCustomerServiceTab("check")}
+                className={customerServiceTab === "check" ? "bg-primary text-black font-bold" : "text-gray-400 hover:text-white"}
+              >
+                <Search className="h-4 w-4 mr-1.5" /> Check KCC Status
+              </Button>
+              <Button
+                variant={customerServiceTab === "apply" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setCustomerServiceTab("apply")}
+                className={customerServiceTab === "apply" ? "bg-primary text-black font-bold" : "text-gray-400 hover:text-white"}
+              >
+                <CreditCard className="h-4 w-4 mr-1.5" /> Apply KCC for Farmer
+              </Button>
+              <Button
+                variant={customerServiceTab === "register" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setCustomerServiceTab("register")}
+                className={customerServiceTab === "register" ? "bg-primary text-black font-bold" : "text-gray-400 hover:text-white"}
+              >
+                <UserPlus className="h-4 w-4 mr-1.5" /> New Farmer Registration
+              </Button>
+              <Button
+                variant={customerServiceTab === "pos" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setCustomerServiceTab("pos")}
+                className={customerServiceTab === "pos" ? "bg-primary text-black font-bold" : "text-gray-400 hover:text-white"}
+              >
+                <Receipt className="h-4 w-4 mr-1.5" /> KCC POS Billing
+              </Button>
+            </div>
+
+            {/* TAB 1: CHECK KCC STATUS */}
+            {customerServiceTab === "check" && (
+              <div className="space-y-4">
+                <form onSubmit={handleCheckKccStatus} className="space-y-4 bg-white/5 p-4 rounded-xl border border-white/10">
+                  <p className="text-xs text-primary font-semibold">Fill ANY ONE detail below (Phone Number, Aadhaar Number, OR KCC Card Number) to verify status:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs text-gray-300">Phone Number</Label>
+                      <Input
+                        value={checkPhone}
+                        onChange={(e) => setCheckPhone(e.target.value)}
+                        placeholder="e.g. 9876543210"
+                        className="bg-black/50 border-white/10 text-white"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-300">Aadhaar Number</Label>
+                      <Input
+                        value={checkAadhaar}
+                        onChange={(e) => setCheckAadhaar(e.target.value)}
+                        placeholder="e.g. 1234-5678-9012"
+                        className="bg-black/50 border-white/10 text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-300">KCC Card Number</Label>
+                      <Input
+                        value={checkCardNum}
+                        onChange={(e) => setCheckCardNum(e.target.value)}
+                        placeholder="e.g. KCC-BH-2026-9041"
+                        className="bg-black/50 border-white/10 text-white font-mono"
+                      />
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full bg-primary text-black font-bold">
+                    <Search className="h-4 w-4 mr-2" /> Search KCC Records
+                  </Button>
+                </form>
+
+                {checkResult && (
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
+                    {checkResult ? (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle2 className="h-5 w-5 text-primary" />
+                          <h4 className="font-bold text-white">KCC Account Active</h4>
+                        </div>
+                        <p className="text-xs text-gray-300">Name: <strong className="text-white">{checkResult.fullName || checkResult.applicantName || "Ramesh Kumar"}</strong></p>
+                        <p className="text-xs text-gray-300">Card Number: <strong className="text-primary font-mono">{checkResult.cardNumber || "KCC-BH-2026-9041"}</strong></p>
+                        <p className="text-xs text-gray-300">Phone: <strong className="text-white">{checkResult.phone}</strong> · Aadhaar: <strong className="text-white font-mono">{checkResult.aadhaar}</strong></p>
+                        <p className="text-xs text-gray-300">Status: <span className="uppercase text-primary font-bold">{checkResult.status || "APPROVED"}</span></p>
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-400 py-4 text-sm">
+                        No KCC record found for criteria. Use "Apply KCC for Farmer" to submit a new application.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 2: APPLY KCC */}
+            {customerServiceTab === "apply" && (
+              <form onSubmit={handleDealerApplyKccSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-gray-300">Farmer Full Name *</Label>
+                    <Input value={applyName} onChange={e => setApplyName(e.target.value)} placeholder="Farmer Full Name" className="bg-white/5 border-white/10 text-white" required />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-300">Phone Number *</Label>
+                    <Input value={applyPhone} onChange={e => setApplyPhone(e.target.value)} placeholder="10-digit Mobile" className="bg-white/5 border-white/10 text-white" required />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-300">Aadhaar Number *</Label>
+                    <Input value={applyAadhaar} onChange={e => setApplyAadhaar(e.target.value)} placeholder="12-digit Aadhaar" className="bg-white/5 border-white/10 text-white" required />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-300">Land Size (in Acres)</Label>
+                    <Input value={applyLand} onChange={e => setApplyLand(e.target.value)} placeholder="e.g. 3.5" className="bg-white/5 border-white/10 text-white" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-300">Residential Address</Label>
+                  <Input value={applyAddress} onChange={e => setApplyAddress(e.target.value)} placeholder="Village, Block" className="bg-white/5 border-white/10 text-white" />
+                </div>
+
+                <Button type="submit" className="w-full bg-primary text-black font-bold">
+                  Submit KCC Application & Generate Receipt
+                </Button>
+
+                {applyPdfInfo && (
+                  <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-between">
+                    <span className="text-xs text-primary font-semibold">✓ Application Slip Ready!</span>
+                    <Button size="sm" onClick={() => downloadPdf(applyPdfInfo.dataUrl, applyPdfInfo.fileName)} className="bg-primary text-black font-bold text-xs">
+                      <Download className="h-3.5 w-3.5 mr-1" /> Download PDF Slip
+                    </Button>
+                  </div>
+                )}
+              </form>
+            )}
+
+            {/* TAB 3: NEW FARMER REGISTRATION */}
+            {customerServiceTab === "register" && (
+              <form onSubmit={handleNewFarmerRegisterSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs text-gray-300">Full Name *</Label>
+                    <Input value={regName} onChange={e => setRegName(e.target.value)} placeholder="Farmer Name" className="bg-white/5 border-white/10 text-white" required />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-300">Phone Number *</Label>
+                    <Input value={regPhone} onChange={e => setRegPhone(e.target.value)} placeholder="10-digit phone" className="bg-white/5 border-white/10 text-white" required />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-300">Aadhaar Number *</Label>
+                    <Input value={regAadhaar} onChange={e => setRegAadhaar(e.target.value)} placeholder="12-digit Aadhaar" className="bg-white/5 border-white/10 text-white" required />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs text-gray-300">Village</Label>
+                    <Input value={regVillage} onChange={e => setRegVillage(e.target.value)} placeholder="Village Name" className="bg-white/5 border-white/10 text-white" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-300">District</Label>
+                    <Input value={regDistrict} onChange={e => setRegDistrict(e.target.value)} placeholder="Patna / Nalanda" className="bg-white/5 border-white/10 text-white" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-300">Land Size (Acres)</Label>
+                    <Input value={regLand} onChange={e => setRegLand(e.target.value)} placeholder="e.g. 2.0" className="bg-white/5 border-white/10 text-white" />
+                  </div>
+                </div>
+
+                <Button type="submit" className="w-full bg-primary text-black font-bold">
+                  Register Farmer & Download Certificate
+                </Button>
+
+                {regPdfInfo && (
+                  <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-between">
+                    <span className="text-xs text-primary font-semibold">✓ Farmer Digital Certificate Generated!</span>
+                    <Button size="sm" onClick={() => downloadPdf(regPdfInfo.dataUrl, regPdfInfo.fileName)} className="bg-primary text-black font-bold text-xs">
+                      <Download className="h-3.5 w-3.5 mr-1" /> Download Certificate
+                    </Button>
+                  </div>
+                )}
+              </form>
+            )}
+
+            {/* TAB 4: FARMERS KCC POS BILLING */}
+            {customerServiceTab === "pos" && (
+              <div className="space-y-4">
+                <form onSubmit={handleLookupFarmerPos} className="bg-white/5 p-4 rounded-xl border border-white/10 space-y-3">
+                  <p className="text-xs text-primary font-semibold">Step 1: Lookup Farmer KCC Account (Fill ANY ONE field: KCC Card Number, Aadhaar Number, OR Phone Number)</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs text-gray-300 mb-1 block">KCC Card Number</Label>
+                      <Input value={posQueryNum} onChange={e => setPosQueryNum(e.target.value)} placeholder="e.g. KCC-BH-2026-9041" className="bg-black/50 border-white/10 text-white text-xs font-mono" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-300 mb-1 block">Aadhaar Number</Label>
+                      <Input value={posQueryAadhaar} onChange={e => setPosQueryAadhaar(e.target.value)} placeholder="e.g. 1234-5678-9012" className="bg-black/50 border-white/10 text-white text-xs font-mono" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-300 mb-1 block">Phone Number</Label>
+                      <Input value={posQueryPhone} onChange={e => setPosQueryPhone(e.target.value)} placeholder="e.g. 9876543210" className="bg-black/50 border-white/10 text-white text-xs" />
+                    </div>
+                  </div>
+                  <Button type="submit" size="sm" className="bg-primary text-black font-bold">
+                    <Search className="h-3.5 w-3.5 mr-1" /> Find Profile & Card Balance
+                  </Button>
+                </form>
+
+                {posFarmerProfile && (
+                  <form onSubmit={handleInitiatePosBilling} className="bg-primary/5 border border-primary/20 p-4 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between border-b border-primary/20 pb-2">
+                      <div>
+                        <h4 className="font-bold text-white text-sm">{posFarmerProfile.name}</h4>
+                        <p className="text-xs text-gray-400">Card: {posFarmerProfile.cardNumber} · Phone: {posFarmerProfile.phone}</p>
+                      </div>
+                      <Badge className="bg-primary text-black font-bold text-xs">
+                        Limit: ₹{posFarmerProfile.kccBalance.toLocaleString()}
+                      </Badge>
+                    </div>
+
+                    <p className="text-xs text-gray-300 font-semibold">Step 2: Enter POS Billing Details</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-gray-300">Item / Store Purchase Description</Label>
+                        <Input value={posItemDesc} onChange={e => setPosItemDesc(e.target.value)} placeholder="e.g. Urea Fertilizers (5 bags)" className="bg-black/50 border-white/10 text-white" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-300">Billing Amount (₹) *</Label>
+                        <Input type="number" value={posAmount} onChange={e => setPosAmount(e.target.value)} placeholder="e.g. 1500" className="bg-black/50 border-white/10 text-white" required />
+                      </div>
+                    </div>
+
+                    <Button type="submit" className="w-full bg-primary text-black font-bold">
+                      <Lock className="h-4 w-4 mr-2" /> Authorize POS Payment via OTP
+                    </Button>
+                  </form>
+                )}
+
+                {posReceiptPdf && (
+                  <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-between">
+                    <span className="text-xs text-primary font-semibold">✓ POS Invoice Bill Ready!</span>
+                    <Button size="sm" onClick={() => downloadPdf(posReceiptPdf.dataUrl, posReceiptPdf.fileName)} className="bg-primary text-black font-bold text-xs">
+                      <Download className="h-3.5 w-3.5 mr-1" /> Download Invoice PDF
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* POS OTP AUTHORIZATION SUB-MODAL */}
+      {posOtpModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm p-6 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mx-auto">
+              <Send className="h-6 w-6" />
+            </div>
+            <h3 className="font-bold text-lg text-white">Farmer OTP Verification</h3>
+            <p className="text-xs text-gray-400">
+              SMS OTP sent to <strong className="text-white">{posFarmerProfile?.phone}</strong> for transaction amount <strong className="text-primary">₹{posAmount}</strong>
+            </p>
+            <div className="p-2 bg-white/5 rounded-lg border border-white/10 text-xs font-mono text-primary">
+              Demo OTP: <strong>{posGeneratedOtp}</strong>
+            </div>
+            <div>
+              <Input
+                type="text"
+                maxLength={4}
+                value={posInputOtp}
+                onChange={e => setPosInputOtp(e.target.value)}
+                placeholder="Enter 4-digit OTP"
+                className="bg-white/5 border-white/10 text-white text-center text-lg tracking-widest font-mono"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setPosOtpModal(false)} className="flex-1 border border-white/10 text-gray-300 text-xs">
+                Cancel
+              </Button>
+              <Button onClick={handleVerifyOtpAndChargePos} className="flex-1 bg-primary text-black font-bold text-xs">
+                Confirm & Debit
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === ADD PRODUCTS OR SERVICES MODAL === */}
+      {isAddListingModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 relative shadow-2xl animate-in fade-in zoom-in-95">
+            <button
+              onClick={() => setIsAddListingModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-full p-2"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                <Plus className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Add New Product or Service</h2>
+                <p className="text-xs text-gray-400">List items for Admin review and live marketplace availability</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleAddListingSubmit} className="space-y-4">
+              {/* Type selector */}
+              <div>
+                <Label className="text-xs text-gray-300 mb-1.5 block">Listing Type</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    type="button"
+                    variant={listingType === "product" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setListingType("product")}
+                    className={listingType === "product" ? "bg-primary text-black font-bold" : "border border-white/10 text-gray-300"}
+                  >
+                    <PackageCheck className="h-4 w-4 mr-1" /> Product
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={listingType === "machinery" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setListingType("machinery")}
+                    className={listingType === "machinery" ? "bg-primary text-black font-bold" : "border border-white/10 text-gray-300"}
+                  >
+                    <Tractor className="h-4 w-4 mr-1" /> Machinery
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={listingType === "labour" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setListingType("labour")}
+                    className={listingType === "labour" ? "bg-primary text-black font-bold" : "border border-white/10 text-gray-300"}
+                  >
+                    <User className="h-4 w-4 mr-1" /> Single Labour
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-300">
+                    {listingType === "labour" ? "Worker Full Name *" : "Title / Name *"}
+                  </Label>
+                  <Input
+                    value={listTitle}
+                    onChange={e => setListTitle(e.target.value)}
+                    placeholder={listingType === "labour" ? "e.g. Ramesh Kumar (Harvester)" : listingType === "machinery" ? "e.g. Mahindra Tractor 45HP" : "e.g. Hybrid Paddy Seeds 50kg"}
+                    className="bg-white/5 border-white/10 text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-300">
+                    {listingType === "labour" ? "Skill / Specialization" : "Category"}
+                  </Label>
+                  <Input
+                    value={listCategory}
+                    onChange={e => setListCategory(e.target.value)}
+                    placeholder={listingType === "labour" ? "e.g. Paddy Harvesting, Sowing, Spraying" : "e.g. Seeds, Fertilizers, Tools"}
+                    className="bg-white/5 border-white/10 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-300">
+                    {listingType === "labour" ? "Daily Wage Rate (₹ / Day) *" : "Price (₹) *"}
+                  </Label>
+                  <Input
+                    type="number"
+                    value={listPrice}
+                    onChange={e => setListPrice(e.target.value)}
+                    placeholder={listingType === "labour" ? "e.g. 450" : "e.g. 1200"}
+                    className="bg-white/5 border-white/10 text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-300">Unit / Rate Shift</Label>
+                  <Input
+                    value={listUnit}
+                    onChange={e => setListUnit(e.target.value)}
+                    placeholder={listingType === "labour" ? "e.g. per day (8 Hours)" : listingType === "machinery" ? "per hour" : "per 50kg bag"}
+                    className="bg-white/5 border-white/10 text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs text-gray-300">Description & Experience</Label>
+                <Input
+                  value={listDesc}
+                  onChange={e => setListDesc(e.target.value)}
+                  placeholder={listingType === "labour" ? "Worker experience, age, phone number, availability..." : "Short overview of product or rental service"}
+                  className="bg-white/5 border-white/10 text-white"
+                />
+              </div>
+
+              {/* DUAL IMAGE UPLOAD (DEVICE & CAMERA) */}
+              <div>
+                <Label className="text-xs text-gray-300 mb-1.5 block font-medium">
+                  {listingType === "labour" ? "Worker Photo" : listingType === "machinery" ? "Machinery Photo" : "Product Photo"}
+                </Label>
+                
+                {listImg ? (
+                  <div className="relative border border-primary/40 rounded-xl p-2 bg-white/5 flex items-center gap-3">
+                    <img src={listImg} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-white/10" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-primary truncate">✓ Photo Attached</p>
+                      <p className="text-[10px] text-gray-400">Ready to submit with listing</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setListImg("")}
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10 text-xs flex items-center gap-1"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Option 1: Device Upload */}
+                    <label className="cursor-pointer flex flex-col items-center justify-center p-3 border border-dashed border-white/20 hover:border-primary/50 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-center">
+                      <Upload className="h-5 w-5 text-primary mb-1" />
+                      <span className="text-xs font-semibold text-white">Upload from Device</span>
+                      <span className="text-[10px] text-gray-400">Choose image file</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageFileUpload}
+                      />
+                    </label>
+
+                    {/* Option 2: Camera Upload */}
+                    <label className="cursor-pointer flex flex-col items-center justify-center p-3 border border-dashed border-white/20 hover:border-primary/50 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-center">
+                      <Camera className="h-5 w-5 text-primary mb-1" />
+                      <span className="text-xs font-semibold text-white">Upload by Camera</span>
+                      <span className="text-[10px] text-gray-400">Take live photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleImageFileUpload}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <Label className="text-xs text-gray-300">Location / District</Label>
+                <Input value={listLocation} onChange={e => setListLocation(e.target.value)} placeholder="Patna, Bihar" className="bg-white/5 border-white/10 text-white" />
+              </div>
+
+              <Button type="submit" className="w-full bg-primary text-black font-bold">
+                Submit Listing for Admin Approval
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* === FEATURE EXPLANATION MODAL === */}
       {selectedFeature && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -616,3 +1462,4 @@ export default function Index() {
     </div>
   );
 }
+

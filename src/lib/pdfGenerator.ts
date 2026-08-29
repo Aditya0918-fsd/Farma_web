@@ -2,23 +2,24 @@ import jsPDF from "jspdf";
 
 export interface FormPdfData {
   formTitle: string;
-  referenceId: string;
-  userName: string;
-  userPhone: string;
+  referenceId?: string;
+  userName?: string;
+  userPhone?: string;
   userRole?: string;
-  details: Record<string, string | number | undefined | null>;
+  details?: Record<string, string | number | undefined | null>;
   timestamp?: string;
+  formData?: Record<string, string | number | undefined | null>;
+  footerNote?: string;
 }
 
-export function generateFormPdf({
-  formTitle,
-  referenceId,
-  userName,
-  userPhone,
-  userRole = "Farmer",
-  details,
-  timestamp = new Date().toLocaleString("en-IN"),
-}: FormPdfData): { dataUrl: string; fileName: string } {
+export function generateFormPdf(params: FormPdfData): { dataUrl: string; fileName: string } {
+  const formTitle = params.formTitle || "Receipt";
+  const detailsObj = params.details || params.formData || {};
+  const referenceId = params.referenceId || (detailsObj["Transaction ID"] as string) || (detailsObj["Application ID"] as string) || (detailsObj["Farmer ID"] as string) || `REF-${Math.floor(100000 + Math.random() * 900000)}`;
+  const userName = params.userName || (detailsObj["Farmer Name"] as string) || (detailsObj["Applicant Name"] as string) || (detailsObj["Full Name"] as string) || "Farmer";
+  const userPhone = params.userPhone || (detailsObj["Phone Number"] as string) || (detailsObj["Mobile Number"] as string) || "N/A";
+  const userRole = params.userRole || "Farmer";
+  const timestamp = params.timestamp || new Date().toLocaleString("en-IN");
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",
@@ -98,7 +99,7 @@ export function generateFormPdf({
   y += 8;
 
   // Table Rows
-  const entries = Object.entries(details).filter(
+  const entries = Object.entries(detailsObj).filter(
     ([_, val]) => val !== undefined && val !== null && val !== ""
   );
 

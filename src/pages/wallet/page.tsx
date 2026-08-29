@@ -270,39 +270,6 @@ export default function WalletPage() {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
 
-        {/* === DEALER SPECIAL WALLET ACTION BANNER === */}
-        {user?.role === "dealer" && (
-          <div className="mb-8 bg-linear-to-r from-[#142314] via-[#111] to-[#1a180f] border border-amber-500/30 rounded-2xl p-5 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
-                <CreditCard className="h-6 w-6 text-amber-400" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px]">DEALER SUITE</Badge>
-                  <span className="text-xs text-gray-400">KCC Services & Billing POS</span>
-                </div>
-                <h3 className="text-lg font-bold text-white">Dealer KCC & Customer Payment Gateway</h3>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-              <Button
-                onClick={() => setIsDealerApplyModalOpen(true)}
-                className="flex-1 md:flex-none bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs py-2.5 px-4 rounded-xl"
-              >
-                <UserPlus className="h-4 w-4 mr-1.5" /> Apply KCC for Farmers
-              </Button>
-              <Button
-                onClick={() => { setIsPosModalOpen(true); setFoundCardInfo(null); setSearchCardNum(""); }}
-                className="flex-1 md:flex-none bg-primary hover:bg-primary/90 text-black font-bold text-xs py-2.5 px-4 rounded-xl shadow-lg shadow-primary/20"
-              >
-                <Receipt className="h-4 w-4 mr-1.5" /> Farmer KCC POS Billing
-              </Button>
-            </div>
-          </div>
-        )}
-
         {/* === WALLET BALANCE & TRANSACTIONS === */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Wallet Card / KCC Card */}
@@ -372,30 +339,6 @@ export default function WalletPage() {
                 <ArrowDownRight className="h-5 w-5 text-red-400 mx-auto mb-1" />
                 <div className="text-lg font-black text-red-400" style={{ fontFamily: "Rajdhani, sans-serif" }}>₹{totalOut.toLocaleString()}</div>
                 <div className="text-xs text-gray-400">{t.wallet.totalOut}</div>
-              </div>
-            </div>
-
-            {/* Add Money */}
-            <div className="bg-[#111] border border-white/10 rounded-2xl p-5">
-              <h3 className="font-semibold mb-3">{t.wallet.addMoney}</h3>
-              <div className="flex gap-2 mb-3 flex-wrap">
-                {[500, 1000, 2000, 5000].map((amt) => (
-                  <button key={amt} onClick={() => setAddAmount(String(amt))} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${addAmount === String(amt) ? "bg-primary text-black" : "bg-white/5 border border-white/10 text-gray-300"}`}>
-                    ₹{amt}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  placeholder={t.wallet.enterAmount}
-                  value={addAmount}
-                  onChange={(e) => setAddAmount(e.target.value)}
-                  className="bg-white/5 border-white/10 text-white"
-                />
-                <Button onClick={() => { if (addAmount) { toast.success(`₹${addAmount} added to wallet!`); setAddAmount(""); } }} className="bg-primary text-black font-semibold shrink-0">
-                  <Plus className="h-4 w-4 mr-1" /> {t.wallet.add}
-                </Button>
               </div>
             </div>
           </div>

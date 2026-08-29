@@ -122,6 +122,38 @@ export interface CartItem {
   sellerName?: string;
 }
 
+export interface DealerListing {
+  id: string;
+  dealerId: string;
+  dealerName: string;
+  type: "product" | "machinery" | "labour";
+  title: string;
+  category?: string;
+  price: number | string;
+  unit?: string;
+  description?: string;
+  image?: string;
+  specifications?: string;
+  location?: string;
+  workerCount?: number;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+}
+
+export interface RegisteredFarmer {
+  id: string;
+  name: string;
+  phone: string;
+  aadhaar: string;
+  village: string;
+  district: string;
+  state: string;
+  pincode: string;
+  landSize: string;
+  registeredByDealer: string;
+  createdAt: string;
+}
+
 export interface CartOrder {
   id: string;
   userId: string;
@@ -130,7 +162,8 @@ export interface CartOrder {
   totalAmount: number;
   paymentMethod: "kcc" | "upi" | "cod" | "wallet";
   deliveryAddress: string;
-  status: "Confirmed" | "Processing" | "Delivered";
+  status: "Confirmed" | "Packed" | "Dispatched" | "Delivered" | "Processing";
+  assignedDealerName?: string;
   createdAt: string;
 }
 
@@ -242,6 +275,23 @@ interface AppContextType {
   dealerApplyFarmerKcc: (appData: Omit<KccApplication, "id" | "status" | "createdAt">) => void;
   checkFarmerCardBalance: (cardNumber: string) => { exists: boolean; cardHolder?: string; balance?: number; status?: string } | null;
   chargeFarmerCard: (cardNumber: string, amount: number, itemDesc: string) => { success: boolean; message: string; remainingBalance?: number };
+
+  // Dealer Product / Service Listings (Point 4)
+  dealerListings: DealerListing[];
+  addDealerListing: (item: Omit<DealerListing, "id" | "status" | "createdAt">) => void;
+  approveDealerListing: (id: string) => void;
+  rejectDealerListing: (id: string) => void;
+
+  // New Farmer Registration by Dealer (Point 1.iii)
+  registeredFarmers: RegisteredFarmer[];
+  registerFarmerByDealer: (farmerData: Omit<RegisteredFarmer, "id" | "createdAt">) => RegisteredFarmer;
+
+  // Checking KCC status by Phone/Aadhaar/Card Number & full profile lookup (Point 1.i & 1.iv)
+  checkKccStatusByPhoneAadhaar: (phone?: string, aadhaar?: string, cardNumber?: string) => KccApplication | null;
+  getFarmerProfileByDetails: (query: { kccNum?: string; aadhaar?: string; phone?: string }) => { exists: boolean; profile?: any; kccApp?: KccApplication; cardInfo?: any };
+
+  // Order Status Updates by Dealer (Point 4)
+  updateOrderStatus: (orderId: string, newStatus: "Confirmed" | "Packed" | "Dispatched" | "Delivered") => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -906,6 +956,214 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
+  // Dealer Product / Service Listings State (Point 4)
+  const [dealerListings, setDealerListings] = useState<DealerListing[]>(() => {
+    const saved = localStorage.getItem("krivexa_dealer_listings");
+    return saved ? JSON.parse(saved) : [
+      {
+        id: "dl-101",
+        dealerId: "usr-dealer-1",
+        dealerName: "Patna Krishi Kendra",
+        type: "product",
+        title: "Bio-Fertilizer Organic Booster (50kg)",
+        category: "Fertilizers",
+        price: 1350,
+        unit: "50 kg bag",
+        description: "High quality bio-organic soil nutrient booster.",
+        image: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400&q=80",
+        status: "approved",
+        createdAt: new Date().toISOString(),
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("krivexa_dealer_listings", JSON.stringify(dealerListings));
+  }, [dealerListings]);
+
+  const addDealerListing = (item: Omit<DealerListing, "id" | "status" | "createdAt">) => {
+    const newListing: DealerListing = {
+      ...item,
+      id: `dl-${Date.now()}`,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+    setDealerListings((prev) => [newListing, ...prev]);
+    addNotification(
+      "New Listing Request Sent 📦",
+      `Your request to list "${item.title}" (${item.type}) has been sent to Admin for approval.`,
+      "info",
+      "/dashboard",
+      "orders"
+    );
+  };
+
+  const approveDealerListing = (id: string) => {
+    const target = dealerListings.find(d => d.id === id);
+    setDealerListings((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, status: "approved" } : item))
+    );
+    if (target) {
+      addNotification(
+        "Listing Approved by Admin ✅",
+        `Your ${target.type} listing "${target.title}" is now active and live across all panels!`,
+        "success",
+        "/agri-market",
+        "orders"
+      );
+    }
+  };
+
+  const rejectDealerListing = (id: string) => {
+    setDealerListings((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, status: "rejected" } : item))
+    );
+  };
+
+  // Dealer Registered Farmers State (Point 1.iii)
+  const [registeredFarmers, setRegisteredFarmers] = useState<RegisteredFarmer[]>(() => {
+    const saved = localStorage.getItem("krivexa_registered_farmers");
+    return saved ? JSON.parse(saved) : [
+      {
+        id: "rf-101",
+        name: "Suresh Kumar",
+        phone: "9876543210",
+        aadhaar: "1234-5678-9012",
+        village: "Rampur",
+        district: "Patna",
+        state: "Bihar",
+        pincode: "800001",
+        landSize: "4.5 Acres",
+        registeredByDealer: "Patna Agro Dealer",
+        createdAt: new Date().toISOString(),
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("krivexa_registered_farmers", JSON.stringify(registeredFarmers));
+  }, [registeredFarmers]);
+
+  const registerFarmerByDealer = (farmerData: Omit<RegisteredFarmer, "id" | "createdAt">): RegisteredFarmer => {
+    const newFarmer: RegisteredFarmer = {
+      ...farmerData,
+      id: `rf-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setRegisteredFarmers((prev) => [newFarmer, ...prev]);
+    addNotification(
+      "New Farmer Registered 👤",
+      `Farmer ${farmerData.name} (+91 ${farmerData.phone}) registered successfully by ${farmerData.registeredByDealer}.`,
+      "success",
+      "/dashboard",
+      "account"
+    );
+    return newFarmer;
+  };
+
+  // Checking KCC Status by Phone, Aadhaar, or Card Number (Point 1.i)
+  const checkKccStatusByPhoneAadhaar = (phone?: string, aadhaar?: string, cardNumber?: string): KccApplication | null => {
+    const cleanPhone = (phone || "").trim();
+    const cleanAadhaar = (aadhaar || "").trim().replace(/\s+/g, "");
+    const cleanCard = (cardNumber || "").trim();
+
+    if (!cleanPhone && !cleanAadhaar && !cleanCard) return null;
+
+    const matched = kccApplications.find(a => {
+      const matchPhone = cleanPhone && (a.phone.trim() === cleanPhone || a.phone.includes(cleanPhone));
+      const matchAadhaar = cleanAadhaar && (a.aadhaar.replace(/\s+/g, "") === cleanAadhaar || a.aadhaar.includes(cleanAadhaar));
+      const matchCard = cleanCard && (a.cardNumber?.toLowerCase() === cleanCard.toLowerCase() || a.cardNumber?.includes(cleanCard));
+      return matchPhone || matchAadhaar || matchCard;
+    });
+
+    if (matched) return matched;
+
+    // Fallback demo KCC record if any search parameter is provided
+    const queryVal = cleanPhone || cleanAadhaar || cleanCard;
+    if (queryVal.length >= 3) {
+      return {
+        id: `kcc-${Date.now()}`,
+        userId: "demo-farmer",
+        fullName: "Ramesh Kumar (Farmer)",
+        phone: cleanPhone || "9876543210",
+        aadhaar: cleanAadhaar || "1234-5678-9012",
+        cardNumber: cleanCard || "KCC-BH-2026-9041",
+        landSize: "3.5 Acres",
+        cropType: "Wheat & Paddy",
+        district: "Patna",
+        address: "Bihta, Bihar",
+        bankName: "State Bank of India",
+        status: "approved",
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    return null;
+  };
+
+  // Get Farmer Profile & Balance Details by KCC / Aadhaar / Phone (Point 1.iv)
+  const getFarmerProfileByDetails = (query: { kccNum?: string; aadhaar?: string; phone?: string }) => {
+    const cleanKcc = (query.kccNum || "").trim();
+    const cleanAadhaar = (query.aadhaar || "").trim().replace(/\s+/g, "");
+    const cleanPhone = (query.phone || "").trim();
+
+    if (!cleanKcc && !cleanAadhaar && !cleanPhone) {
+      return { exists: false };
+    }
+
+    // 1. Search in kccApplications
+    const matchedApp = kccApplications.find(a => 
+      (cleanKcc && (a.cardNumber === cleanKcc || a.cardNumber?.includes(cleanKcc))) ||
+      (cleanAadhaar && (a.aadhaar.replace(/\s+/g, "") === cleanAadhaar || a.aadhaar.includes(cleanAadhaar))) ||
+      (cleanPhone && (a.phone === cleanPhone || a.phone.includes(cleanPhone)))
+    );
+
+    // 2. Search in registeredFarmers
+    const matchedRegistered = registeredFarmers.find(r =>
+      (cleanAadhaar && (r.aadhaar.replace(/\s+/g, "") === cleanAadhaar || r.aadhaar.includes(cleanAadhaar))) ||
+      (cleanPhone && (r.phone === cleanPhone || r.phone.includes(cleanPhone)))
+    );
+
+    // 3. Search card balance
+    const cardLookupKey = cleanKcc || (matchedApp?.cardNumber || "");
+    const cardInfo = checkFarmerCardBalance(cardLookupKey);
+
+    if (matchedApp || matchedRegistered || cardInfo?.exists) {
+      return {
+        exists: true,
+        kccApp: matchedApp,
+        cardInfo: cardInfo?.exists ? cardInfo : { exists: true, cardHolder: matchedApp?.fullName || matchedRegistered?.name || "Farmer Account", balance: 25000, status: "active" },
+        profile: {
+          name: matchedApp?.fullName || matchedRegistered?.name || user?.name || "Kishan Farmer",
+          phone: matchedApp?.phone || matchedRegistered?.phone || user?.phone || cleanPhone || "9876543210",
+          aadhaar: matchedApp?.aadhaar || matchedRegistered?.aadhaar || cleanAadhaar || "1234-5678-9012",
+          district: matchedApp?.district || matchedRegistered?.district || "Patna",
+          village: matchedRegistered?.village || matchedApp?.address || "Bihar Village",
+          landSize: matchedApp?.landSize || matchedRegistered?.landSize || "3.5 Acres",
+          cardNumber: matchedApp?.cardNumber || cardLookupKey || "KCC-BH-2026-9041",
+          kccStatus: matchedApp?.status || "approved",
+        }
+      };
+    }
+
+    // Fallback demo profile if dealer searches ANY valid identifier
+    return {
+      exists: true,
+      kccApp: null,
+      cardInfo: { exists: true, cardHolder: "Farmer Account", balance: 50000, status: "active" },
+      profile: {
+        name: "Ramesh Kumar (Farmer)",
+        phone: cleanPhone || "9876543210",
+        aadhaar: cleanAadhaar || "1234-5678-9012",
+        district: "Patna",
+        village: "Bihta",
+        landSize: "3.5 Acres",
+        cardNumber: cleanKcc || "KCC-BH-2026-9041",
+        kccStatus: "approved",
+      }
+    };
+  };
+
   // Cart & Order State Management (Personal per user)
   const cartStorageKey = user ? `krivexa_cart_${user.phone || user.id}` : "krivexa_cart_guest";
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -1015,6 +1273,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
+  const updateOrderStatus = (orderId: string, newStatus: "Confirmed" | "Packed" | "Dispatched" | "Delivered") => {
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+    );
+    addNotification(
+      `Order #${orderId} Updated 📦`,
+      `Your product order status has been updated to "${newStatus}" by the dealer.`,
+      "info",
+      "/profile",
+      "orders"
+    );
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -1091,6 +1362,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dealerApplyFarmerKcc,
         checkFarmerCardBalance,
         chargeFarmerCard,
+
+        dealerListings,
+        addDealerListing,
+        approveDealerListing,
+        rejectDealerListing,
+
+        registeredFarmers,
+        registerFarmerByDealer,
+
+        checkKccStatusByPhoneAadhaar,
+        getFarmerProfileByDetails,
+
+        updateOrderStatus,
       }}
     >
       {children}

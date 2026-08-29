@@ -4,11 +4,17 @@ import {
   LayoutDashboard, TrendingUp, ShoppingCart, Leaf, Tractor, Users, MessageSquare,
   FlaskConical, CloudSun, Wallet, FileText, Bell, User, HelpCircle, Menu, X,
   Search, ArrowUpRight, Plus, Eye, LogOut, CheckCheck, Home, CreditCard,
-  CheckCircle2, Clock, Filter, MapPin, Calendar, Tag, ChevronRight, Package
+  CheckCircle2, Clock, Filter, MapPin, Calendar, Tag, ChevronRight, Package,
+  UserPlus, Receipt, Download, ShieldCheck, CheckCircle, RefreshCw, Send, Lock,
+  PackageCheck, AlertCircle, Upload, Camera, Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { Label } from "@/components/ui/label.tsx";
 import { useApp } from "@/context/AppContext.tsx";
+import { generateFormPdf, downloadPdf } from "@/lib/pdfGenerator.ts";
+import { toast } from "sonner";
 
 export default function DashboardPage() {
   const {
@@ -20,7 +26,16 @@ export default function DashboardPage() {
     setIsKccAppModalOpen,
     cropListings,
     machineryBookings,
-    hasAppliedKcc
+    hasAppliedKcc,
+    dealerApplyFarmerKcc,
+    chargeFarmerCard,
+    dealerListings,
+    addDealerListing,
+    registerFarmerByDealer,
+    checkKccStatusByPhoneAadhaar,
+    getFarmerProfileByDetails,
+    orders: contextOrders,
+    updateOrderStatus,
   } = useApp();
 
   const location = useLocation();
@@ -40,12 +55,75 @@ export default function DashboardPage() {
   // Dealer Dashboard Timeframe Analytics state
   const [dealerTimeframe, setDealerTimeframe] = useState<"1day" | "weekly" | "monthly" | "quarterly" | "yearly">("monthly");
 
+  // Requirement 3: Total Income breakdown modal
+  const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
+  const [incomePaymentFilter, setIncomePaymentFilter] = useState<"all" | "kcc" | "kkw" | "upi" | "cod">("all");
+
+  // Requirement 1: Customer Services Modal
+  const [isCustomerServicesModalOpen, setIsCustomerServicesModalOpen] = useState(false);
+  const [customerServiceTab, setCustomerServiceTab] = useState<"check" | "apply" | "register" | "pos">("check");
+
+  // Check KCC State (Option i)
+  const [checkPhone, setCheckPhone] = useState("");
+  const [checkAadhaar, setCheckAadhaar] = useState("");
+  const [checkCardNum, setCheckCardNum] = useState("");
+  const [checkResult, setCheckResult] = useState<any>(null);
+
+  // Apply KCC State (Option ii)
+  const [applyName, setApplyName] = useState("");
+  const [applyPhone, setApplyPhone] = useState("");
+  const [applyAadhaar, setApplyAadhaar] = useState("");
+  const [applyAddress, setApplyAddress] = useState("");
+  const [applyDistrict, setApplyDistrict] = useState("Patna");
+  const [applyLand, setApplyLand] = useState("");
+  const [applyPdfInfo, setApplyPdfInfo] = useState<{ dataUrl: string; fileName: string } | null>(null);
+
+  // New Farmer Registration State (Option iii)
+  const [regName, setRegName] = useState("");
+  const [regPhone, setRegPhone] = useState("");
+  const [regAadhaar, setRegAadhaar] = useState("");
+  const [regVillage, setRegVillage] = useState("");
+  const [regDistrict, setRegDistrict] = useState("Patna");
+  const [regState, setRegState] = useState("Bihar");
+  const [regPincode, setRegPincode] = useState("");
+  const [regLand, setRegLand] = useState("");
+  const [regPdfInfo, setRegPdfInfo] = useState<{ dataUrl: string; fileName: string } | null>(null);
+
+  // Farmers KCC POS Billing & Balance Check State (Option iv)
+  const [posQueryNum, setPosQueryNum] = useState("");
+  const [posQueryAadhaar, setPosQueryAadhaar] = useState("");
+  const [posQueryPhone, setPosQueryPhone] = useState("");
+  const [posFarmerProfile, setPosFarmerProfile] = useState<any>(null);
+  const [posAmount, setPosAmount] = useState("");
+  const [posItemDesc, setPosItemDesc] = useState("");
+  const [posOtpModal, setPosOtpModal] = useState(false);
+  const [posGeneratedOtp, setPosGeneratedOtp] = useState("");
+  const [posInputOtp, setPosInputOtp] = useState("");
+  const [posReceiptPdf, setPosReceiptPdf] = useState<{ dataUrl: string; fileName: string } | null>(null);
+
+  // Requirement 4: Add New Products or Services Modal
+  const [isAddListingModalOpen, setIsAddListingModalOpen] = useState(false);
+  const [listingType, setListingType] = useState<"product" | "machinery" | "labour">("product");
+
+  const [listTitle, setListTitle] = useState("");
+  const [listCategory, setListCategory] = useState("Seeds");
+  const [listPrice, setListPrice] = useState("");
+  const [listUnit, setListUnit] = useState("5 kg bag");
+  const [listDesc, setListDesc] = useState("");
+  const [listImg, setListImg] = useState("");
+  const [listSpecs, setListSpecs] = useState("");
+  const [listLocation, setListLocation] = useState("Patna, Bihar");
+  const [listWorkerCount, setListWorkerCount] = useState("5");
+
+  // Selected Order Detail Modal for Dealer status update
+  const [selectedOrderForStatus, setSelectedOrderForStatus] = useState<any>(null);
+
   const DEALER_ANALYTICS: Record<string, { income: string; orders: number; sales: string; growth: string }> = {
     "1day": { income: "₹18,450", orders: 14, sales: "₹42,800", growth: "+4.2% vs yesterday" },
     "weekly": { income: "₹1,24,500", orders: 86, sales: "₹3,10,000", growth: "+8.5% vs last week" },
     "monthly": { income: "₹5,42,000", orders: 342, sales: "₹14,20,000", growth: "+14.2% vs last month" },
     "quarterly": { income: "₹16,80,000", orders: 1050, sales: "₹45,60,000", growth: "+18.1% vs Q1" },
-    "yearly": { income: "₹68,50,000", orders: 4200, sales: "₹1,85,000,00", growth: "+22.4% YoY" },
+    "yearly": { income: "₹68,50,000", orders: 4200, sales: "₹1,85,00,000", growth: "+22.4% YoY" },
   };
 
   const unreadNotifCount = notifications.filter((n) => !n.read).length;
@@ -73,7 +151,7 @@ export default function DashboardPage() {
     { crop: "Maize", price: "₹1,920", unit: "/Quintal", change: "+0.91%", up: true },
   ];
 
-  // Listed Crops Data (combining AppContext cropListings + demo listed crops)
+  // Listed Crops Data
   const defaultListedCrops = [
     {
       id: "crop-demo-1",
@@ -101,22 +179,22 @@ export default function DashboardPage() {
       image: "https://images.unsplash.com/photo-1536054993300-0b00f01ee72a?w=500&q=80",
       createdAt: "2026-08-18T14:15:00.000Z",
     },
-    {
-      id: "crop-demo-3",
-      cropName: "Organic Soyabean",
-      weight: "20 Quintal",
-      price: 4920,
-      district: "Varanasi",
-      city: "Rajpur",
-      sellerName: user?.name || "Ram Das",
-      phone: user?.phone || "8906554583",
-      status: "pending",
-      image: "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=500&q=80",
-      createdAt: "2026-08-24T09:00:00.000Z",
-    },
   ];
 
   const allUserCrops = [...cropListings, ...defaultListedCrops];
+
+  // Income Breakdown Transactions List
+  const INCOME_TRANSACTIONS = [
+    { id: "TX-901", method: "kcc", title: "Farmer KCC POS Billing", customer: "Ram Das", amount: "₹25,000", date: "Today, 11:30 AM", status: "Completed" },
+    { id: "TX-902", method: "kkw", title: "Fertilizer Order #ORD-1256", customer: "Suresh Kumar", amount: "₹14,500", date: "Today, 10:15 AM", status: "Completed" },
+    { id: "TX-903", method: "upi", title: "Hybrid Wheat Seeds Purchase", customer: "Anita Devi", amount: "₹8,200", date: "Yesterday, 04:45 PM", status: "Completed" },
+    { id: "TX-904", method: "cod", title: "Bio Compost 25kg Delivery", customer: "Mahesh Singh", amount: "₹3,400", date: "Yesterday, 02:10 PM", status: "Delivered & Paid" },
+    { id: "TX-905", method: "kcc", title: "Pesticides Bulk Order POS", customer: "Rajesh Sharma", amount: "₹18,900", date: "24 Aug 2026", status: "Completed" },
+  ];
+
+  const filteredIncomeTx = incomePaymentFilter === "all"
+    ? INCOME_TRANSACTIONS
+    : INCOME_TRANSACTIONS.filter(t => t.method === incomePaymentFilter);
 
   // All Orders & Bookings History Data
   const ALL_ORDERS = [
@@ -132,6 +210,10 @@ export default function DashboardPage() {
       statusBadge: "bg-primary/20 text-primary border-primary/30",
       icon: ShoppingCart,
       details: "Delivered to Rajpur Farm. Payment mode: Kisan Wallet.",
+      paymentMethod: "KKW Wallet",
+      customerName: "Ram Das",
+      customerPhone: "8906554583",
+      address: "Rajpur, Varanasi",
     },
     {
       id: "TRAC-256",
@@ -145,108 +227,302 @@ export default function DashboardPage() {
       statusBadge: "bg-blue-500/20 text-blue-400 border-blue-500/30",
       icon: Tractor,
       details: "Operator: Rajesh Kumar. Scheduled for 28 Aug 2026, 08:00 AM.",
-    },
-    {
-      id: "SEED-178",
-      type: "inputs",
-      categoryName: "Input Purchase",
-      title: "Hybrid Wheat Seeds (25kg)",
-      vendor: "Bihar Agro Seed Corp",
-      date: "10 May, 2026",
-      amount: "₹1,850.00",
-      status: "Shipped",
-      statusBadge: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-      icon: Package,
-      details: "Dispatched via Express Courier. Tracking ID: EXP908712.",
-    },
-    {
-      id: "LAB-405",
-      type: "labour",
-      categoryName: "Labour Booking",
-      title: "Paddy Harvesting Workers (4 Labours)",
-      vendor: "Krivexa Labour Network",
-      date: "08 May, 2026",
-      amount: "₹2,000.00 (Full Day)",
-      status: "Completed",
-      statusBadge: "bg-primary/20 text-primary border-primary/30",
-      icon: Users,
-      details: "4 skilled farm workers dispatched for 1.5 Acre harvesting.",
-    },
-    {
-      id: "SOIL-802",
-      type: "inputs",
-      categoryName: "Soil Test Consultation",
-      title: "Full NPK & pH Soil Testing Kit + Report",
-      vendor: "Patna Central Agri Lab",
-      date: "02 May, 2026",
-      amount: "₹499.00",
-      status: "Report Ready",
-      statusBadge: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-      icon: FlaskConical,
-      details: "Soil health score: 8.2/10. Recommended: Organic bio-fertilizer.",
+      paymentMethod: "COD",
+      customerName: "Suresh Patel",
+      customerPhone: "9876543210",
+      address: "Danapur, Patna",
     },
   ];
 
-  // Merge dynamic machinery bookings from AppContext into orders
-  const dynamicMachineryOrders = machineryBookings.map((b) => ({
-    id: b.id.toUpperCase(),
-    type: "machinery",
-    categoryName: "Machinery Booking",
-    title: b.machineryType,
-    vendor: "Krivexa Machine Fleet",
-    date: b.bookingDate,
-    amount: `${b.durationHours} Hours Booking`,
-    status: b.status === "allotted" ? "Confirmed" : b.status === "rejected" ? "Cancelled" : "Pending",
-    statusBadge:
-      b.status === "allotted"
-        ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-        : b.status === "rejected"
-        ? "bg-red-500/20 text-red-400 border-red-500/30"
-        : "bg-amber-500/20 text-amber-400 border-amber-500/30",
-    icon: Tractor,
-    details: `Location: ${b.location}. Phone: ${b.phone}. ${b.allottedMachineDetails || "Waiting for admin allotment."}`,
-  }));
+  const fullOrdersList = [
+    ...contextOrders.map(o => ({
+      id: o.id,
+      type: "inputs",
+      categoryName: "Product Purchase",
+      title: o.items.map(i => `${i.name} (x${i.quantity})`).join(", "),
+      vendor: o.assignedDealerName || user?.name || "Patna Agro Dealer",
+      date: new Date(o.createdAt).toLocaleDateString("en-IN"),
+      amount: `₹${o.totalAmount}`,
+      status: o.status,
+      statusBadge: o.status === "Delivered" ? "bg-primary/20 text-primary border-primary/30" : o.status === "Dispatched" ? "bg-amber-500/20 text-amber-400 border-amber-500/30" : "bg-blue-500/20 text-blue-400 border-blue-500/30",
+      icon: ShoppingCart,
+      details: `Payment method: ${o.paymentMethod.toUpperCase()}. Delivery: ${o.deliveryAddress}`,
+      paymentMethod: o.paymentMethod.toUpperCase(),
+      customerName: o.userName,
+      customerPhone: "Registered Customer",
+      address: o.deliveryAddress,
+    })),
+    ...ALL_ORDERS
+  ];
 
-  const fullOrdersList = [...ALL_ORDERS, ...dynamicMachineryOrders];
+  const filteredOrders = ordersFilter === "all"
+    ? fullOrdersList
+    : fullOrdersList.filter(o => o.type === ordersFilter);
 
-  const filteredOrders = fullOrdersList.filter((o) => {
-    if (ordersFilter === "all") return true;
-    return o.type === ordersFilter;
-  });
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  // Handlers for Customer Services
+  const handleCheckKccStatus = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/agri-market?q=${encodeURIComponent(searchQuery)}`);
+    if (!checkPhone.trim() && !checkAadhaar.trim() && !checkCardNum.trim()) {
+      toast.error("Please enter Mobile Number, Aadhaar Number, OR Card Number");
+      return;
     }
+    const result = checkKccStatusByPhoneAadhaar(checkPhone, checkAadhaar, checkCardNum);
+    if (result) {
+      setCheckResult(result);
+      toast.success("KCC Record found!");
+    } else {
+      setCheckResult({ notFound: true });
+      toast.info("No active KCC application found for given details.");
+    }
+  };
+
+  const handleDealerApplyKccSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!applyName || !applyPhone || !applyAadhaar) {
+      toast.error("Please fill required fields (Name, Phone, Aadhaar)");
+      return;
+    }
+    dealerApplyFarmerKcc({
+      fullName: applyName,
+      phone: applyPhone,
+      aadhaar: applyAadhaar,
+      address: applyAddress || "Bihar Village",
+      district: applyDistrict,
+      landSize: applyLand || "3 Acres",
+    });
+
+    const refId = `KCC-APP-${Math.floor(100000 + Math.random() * 900000)}`;
+    const pdf = generateFormPdf({
+      formTitle: "Kishan Credit Card Application Receipt",
+      referenceId: refId,
+      userName: applyName,
+      userPhone: applyPhone,
+      userRole: "Farmer",
+      details: {
+        "Applicant Full Name": applyName,
+        "Phone Number": applyPhone,
+        "Aadhaar Number": applyAadhaar,
+        "Land Size": applyLand || "3 Acres",
+        "District & Address": `${applyDistrict}, ${applyAddress || "Bihar"}`,
+        "Applied By Dealer": user?.name || "Verified Dealer",
+        "Application Status": "Submitted (Under Review)",
+      },
+    });
+
+    setApplyPdfInfo(pdf);
+    toast.success("KCC Application submitted successfully! PDF Receipt generated.");
+  };
+
+  const handleNewFarmerRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regName || !regPhone || !regAadhaar) {
+      toast.error("Please fill required fields (Name, Phone, Aadhaar)");
+      return;
+    }
+    const registered = registerFarmerByDealer({
+      name: regName,
+      phone: regPhone,
+      aadhaar: regAadhaar,
+      village: regVillage || "Rajpur",
+      district: regDistrict,
+      state: regState,
+      pincode: regPincode || "800001",
+      landSize: regLand || "3 Acres",
+      registeredByDealer: user?.name || "Verified Dealer",
+    });
+
+    const refId = `FARMER-REG-${Math.floor(100000 + Math.random() * 900000)}`;
+    const pdf = generateFormPdf({
+      formTitle: "New Farmer Account Registration Certificate",
+      referenceId: refId,
+      userName: regName,
+      userPhone: regPhone,
+      userRole: "Farmer",
+      details: {
+        "Farmer Account ID": registered.id,
+        "Full Name": regName,
+        "Phone Number": regPhone,
+        "Aadhaar Number": regAadhaar,
+        "Village & District": `${regVillage || "Rajpur"}, ${regDistrict}`,
+        "State & Pincode": `${regState} - ${regPincode || "800001"}`,
+        "Land Size": regLand || "3 Acres",
+        "Registered By Dealer": user?.name || "Verified Dealer",
+      },
+    });
+
+    setRegPdfInfo(pdf);
+    toast.success(`Farmer ${regName} registered successfully! Account PDF generated.`);
+  };
+
+  const handleLookupFarmerPos = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!posQueryNum && !posQueryAadhaar && !posQueryPhone) {
+      toast.error("Please enter KCC Number, Aadhaar Number, or Phone Number.");
+      return;
+    }
+    const info = getFarmerProfileByDetails({
+      kccNum: posQueryNum,
+      aadhaar: posQueryAadhaar,
+      phone: posQueryPhone,
+    });
+
+    if (info.exists) {
+      setPosFarmerProfile(info);
+      toast.success("Farmer Profile & KCC Card balance fetched!");
+    } else {
+      setPosFarmerProfile({ notFound: true });
+      toast.error("No farmer KCC record found matching input.");
+    }
+  };
+
+  const handleInitiatePosBilling = () => {
+    if (!posAmount || Number(posAmount) <= 0) {
+      toast.error("Please enter a valid billing amount.");
+      return;
+    }
+    if (!posFarmerProfile || !posFarmerProfile.exists) {
+      toast.error("Please verify farmer profile first.");
+      return;
+    }
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    setPosGeneratedOtp(otp);
+    setPosInputOtp("");
+    setPosOtpModal(true);
+    toast.info(`OTP sent to farmer's mobile: ${otp}`);
+  };
+
+  const handleVerifyOtpAndChargePos = () => {
+    if (posInputOtp.trim() !== posGeneratedOtp) {
+      toast.error("Invalid OTP code! Please try again.");
+      return;
+    }
+
+    const cardNum = posFarmerProfile.profile?.cardNumber || posQueryNum || "KCC-BH-2026-9041";
+    const chargeRes = chargeFarmerCard(cardNum, Number(posAmount), posItemDesc || "Agri Inputs Purchase");
+
+    if (!chargeRes.success) {
+      toast.error(chargeRes.message);
+      return;
+    }
+
+    const txId = `POS-INV-${Math.floor(100000 + Math.random() * 900000)}`;
+    const pdf = generateFormPdf({
+      formTitle: "Farmer KCC POS Payment Receipt",
+      referenceId: txId,
+      userName: posFarmerProfile.profile?.name || "Farmer",
+      userPhone: posFarmerProfile.profile?.phone || "N/A",
+      userRole: "Farmer",
+      details: {
+        "Kishan Credit Card No": cardNum,
+        "Transaction ID": txId,
+        "Amount Charged": `₹${posAmount}`,
+        "Items / Description": posItemDesc || "Agricultural Purchase",
+        "Remaining Card Limit": `₹${chargeRes.remainingBalance}`,
+        "Dealer Name": user?.name || "Verified Dealer",
+        "OTP Verification": "Verified via SMS (4-Digit OTP)",
+      },
+    });
+
+    setPosReceiptPdf(pdf);
+    setPosOtpModal(false);
+    toast.success(`₹${posAmount} charged successfully via KCC POS! Receipt generated.`);
+  };
+
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 8 * 1024 * 1024) {
+        toast.error("Image file size should be less than 8MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setListImg(reader.result as string);
+        toast.success("Image attached successfully!");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handler for Add New Products or Services
+  const handleAddListingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!listTitle.trim() || !listPrice) {
+      toast.error("Please enter title and price / wage rate.");
+      return;
+    }
+
+    addDealerListing({
+      dealerId: user?.id || "usr-dealer",
+      dealerName: user?.name || "Dealer Store",
+      type: listingType,
+      title: listTitle,
+      category: listCategory,
+      price: Number(listPrice),
+      unit: listUnit,
+      description: listDesc || `High quality ${listingType} offered by dealer.`,
+      image: listImg || (listingType === "product" ? "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&q=80" : listingType === "machinery" ? "https://images.unsplash.com/photo-1530267981608-bc34199c9c30?w=400&q=80" : "https://images.unsplash.com/photo-1595273670150-bd0c3c392e46?w=400&q=80"),
+      specifications: listSpecs,
+      location: listLocation,
+      workerCount: listingType === "labour" ? 1 : undefined,
+    });
+
+    setIsAddListingModalOpen(false);
+    setListTitle("");
+    setListPrice("");
+    setListDesc("");
+    setListImg("");
+    toast.success(`New ${listingType} listing submitted! Pending Admin Approval.`);
   };
 
   const handleLogout = () => {
     logoutUser();
-    navigate("/login");
+    toast.info("Logged out session successfully.");
+    navigate("/");
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    const q = searchQuery.toLowerCase();
+    if (q.includes("mandi") || q.includes("wheat") || q.includes("paddy")) {
+      navigate("/mandi-bhav");
+    } else if (q.includes("buy") || q.includes("seed") || q.includes("fertilizer")) {
+      navigate("/agri-market");
+    } else if (q.includes("tractor") || q.includes("machine")) {
+      navigate("/machinery-booking");
+    } else if (q.includes("labour")) {
+      navigate("/labour-booking");
+    } else {
+      navigate("/agri-market");
+    }
   };
 
   return (
-    <div className="flex h-screen bg-[#0a0a0a] text-white overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col md:flex-row">
       
-      {/* SIDEBAR PANEL */}
-      <aside className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:relative z-50 w-64 h-full bg-[#0c0c0c] border-r border-white/10 flex flex-col transition-transform duration-300`}>
-        
+      {/* SIDEBAR */}
+      <aside
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-[#0c0c0c] border-r border-white/10 flex flex-col transition-transform duration-300 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
         {/* Brand Header */}
-        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+        <div className="h-16 px-4 flex items-center justify-between border-b border-white/10">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/krivexa-logo.jpg" alt="KRIVEXA" className="h-8 w-8 object-cover rounded-lg border border-primary/40" />
-            <div>
-              <div className="text-sm font-black tracking-widest text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>KRIV<span className="text-primary">E</span>XA</div>
-              <div className="text-[9px] text-primary tracking-wider font-semibold">SMART FARMING</div>
-            </div>
+            <span className="text-2xl font-black text-white tracking-wider" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+              KRIV<span className="text-primary">EXA</span>
+            </span>
+            <Badge className="bg-primary/20 text-primary border-primary/30 text-[9px] uppercase px-1.5 py-0.2">
+              PORTAL
+            </Badge>
           </Link>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* User Info Bar in Sidebar */}
+        {/* User Badge */}
         <div className="p-3 mx-3 my-2 bg-white/5 border border-white/10 rounded-xl flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-primary text-black font-black flex items-center justify-center text-sm shrink-0">
             {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
@@ -338,7 +614,6 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            
             {/* Notifications Bell Dropdown */}
             <div className="relative">
               <button
@@ -465,7 +740,7 @@ export default function DashboardPage() {
                   <h2 className="text-xl sm:text-2xl font-black text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>
                     Dealer Business Analytics
                   </h2>
-                  <p className="text-xs text-gray-400">Track total income, orders, and sales performance</p>
+                  <p className="text-xs text-gray-400">Track total income, orders, and sales performance (Click Total Income for payment breakdown)</p>
                 </div>
 
                 {/* Timeframe Filter Selector */}
@@ -492,12 +767,18 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* 3 Metric Cards */}
+              {/* 3 Metric Cards - Requirement 3: Total Income Clickable */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* Total Income */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                
+                {/* CLICKABLE TOTAL INCOME CARD */}
+                <div
+                  onClick={() => setIsIncomeModalOpen(true)}
+                  className="bg-white/5 border border-primary/30 hover:border-primary rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all hover:scale-[1.02] shadow-lg group"
+                >
                   <div>
-                    <div className="text-xs text-gray-400 font-semibold mb-1">Total Income</div>
+                    <div className="text-xs text-gray-400 font-semibold mb-1 flex items-center gap-1">
+                      Total Income <Badge className="bg-primary/20 text-primary border-primary/30 text-[9px] px-1 py-0">Click for Breakdown 🔍</Badge>
+                    </div>
                     <div className="text-2xl font-black text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>
                       {DEALER_ANALYTICS[dealerTimeframe].income}
                     </div>
@@ -505,7 +786,7 @@ export default function DashboardPage() {
                       {DEALER_ANALYTICS[dealerTimeframe].growth}
                     </div>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-black transition-colors">
                     <TrendingUp className="h-5 w-5" />
                   </div>
                 </div>
@@ -544,9 +825,112 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
+
+          {/* === REQUIREMENT 1 & 4: DEALER SERVICES & FEATURES CARDS === */}
+          {user?.role === "dealer" && (
+            <div className="bg-[#111] border border-amber-500/30 rounded-2xl p-5 shadow-2xl">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <CreditCard className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base text-white">OUR SERVICES & DEALER MANAGEMENT</h3>
+                    <p className="text-xs text-gray-400">Customer Services (KCC, Registration, POS) & Product/Service Listings</p>
+                  </div>
+                </div>
+                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px]">DEALER EXCLUSIVE</Badge>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Feature 1: Customer Services */}
+                <div className="bg-linear-to-br from-white/5 to-white/2 border border-white/10 hover:border-amber-500/50 rounded-xl p-5 transition-all space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="text-base font-bold text-white flex items-center gap-2">
+                        <Users className="h-4 w-4 text-amber-400" /> Customer Services
+                      </h4>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        KCC Status Check, Apply KCC, New Farmer Registration & POS Billing
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={() => { setCustomerServiceTab("check"); setIsCustomerServicesModalOpen(true); }}
+                      variant="outline"
+                      className="bg-white/5 border-white/10 hover:border-amber-500/40 text-xs justify-start font-semibold text-gray-200"
+                    >
+                      <Search className="h-3.5 w-3.5 mr-1.5 text-amber-400" /> Check KCC Status
+                    </Button>
+                    <Button
+                      onClick={() => { setCustomerServiceTab("apply"); setIsCustomerServicesModalOpen(true); }}
+                      variant="outline"
+                      className="bg-white/5 border-white/10 hover:border-amber-500/40 text-xs justify-start font-semibold text-gray-200"
+                    >
+                      <UserPlus className="h-3.5 w-3.5 mr-1.5 text-amber-400" /> Apply KCC (PDF)
+                    </Button>
+                    <Button
+                      onClick={() => { setCustomerServiceTab("register"); setIsCustomerServicesModalOpen(true); }}
+                      variant="outline"
+                      className="bg-white/5 border-white/10 hover:border-amber-500/40 text-xs justify-start font-semibold text-gray-200"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5 mr-1.5 text-amber-400" /> New Farmer Reg.
+                    </Button>
+                    <Button
+                      onClick={() => { setCustomerServiceTab("pos"); setIsCustomerServicesModalOpen(true); }}
+                      variant="outline"
+                      className="bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-300 text-xs justify-start font-bold"
+                    >
+                      <Receipt className="h-3.5 w-3.5 mr-1.5 text-amber-400" /> KCC POS Billing
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Feature 2: Add New Products or Services */}
+                <div className="bg-linear-to-br from-white/5 to-white/2 border border-white/10 hover:border-primary/50 rounded-xl p-5 transition-all space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="text-base font-bold text-white flex items-center gap-2">
+                        <Plus className="h-4 w-4 text-primary" /> Add New Products or Services
+                      </h4>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        List Products, Machinery, or Labour for Admin Approval & Direct Marketplace Sales
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      onClick={() => { setListingType("product"); setIsAddListingModalOpen(true); }}
+                      variant="outline"
+                      className="bg-white/5 border-white/10 hover:border-primary/40 text-xs font-semibold text-gray-200"
+                    >
+                      <Package className="h-3.5 w-3.5 mr-1 text-primary" /> Product
+                    </Button>
+                    <Button
+                      onClick={() => { setListingType("machinery"); setIsAddListingModalOpen(true); }}
+                      variant="outline"
+                      className="bg-white/5 border-white/10 hover:border-primary/40 text-xs font-semibold text-gray-200"
+                    >
+                      <Tractor className="h-3.5 w-3.5 mr-1 text-primary" /> Machine
+                    </Button>
+                    <Button
+                      onClick={() => { setListingType("labour"); setIsAddListingModalOpen(true); }}
+                      variant="outline"
+                      className="bg-white/5 border-white/10 hover:border-primary/40 text-xs font-semibold text-gray-200"
+                    >
+                      <Users className="h-3.5 w-3.5 mr-1 text-primary" /> Labour
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            
-            {/* Wallet Balance Card */}
+            {/* Wallet Balance Card - REQUIREMENT 2: ADD MONEY REMOVED */}
             <div className="bg-[#111] border border-white/10 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
               <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-primary/10 rounded-full blur-xl pointer-events-none" />
               <div>
@@ -561,15 +945,10 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2 pt-2">
-                <Link to="/wallet" className="flex-1">
+              <div className="pt-2">
+                <Link to="/wallet">
                   <Button size="sm" className="w-full bg-primary text-black font-bold text-xs py-2">
-                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Money
-                  </Button>
-                </Link>
-                <Link to="/wallet" className="flex-1">
-                  <Button size="sm" variant="ghost" className="w-full border border-white/10 text-xs font-semibold text-gray-300 hover:text-white">
-                    <Eye className="h-3.5 w-3.5 mr-1" /> View Wallet
+                    <Eye className="h-3.5 w-3.5 mr-1" /> View Wallet & History
                   </Button>
                 </Link>
               </div>
@@ -626,13 +1005,11 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
-
           </div>
 
           {/* Middle Row: My Crops, Recent Orders, Live Notifications */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            
-            {/* Requirement 1: My Crops & Cultivation with Manage Crops Modal */}
+            {/* My Crops & Cultivation */}
             <div className="bg-[#111] border border-white/10 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-sm font-bold text-white">My Crops & Cultivation</div>
@@ -664,7 +1041,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Requirement 2: Recent Orders & Bookings with View All History Modal */}
+            {/* Requirement 4: Recent Orders & Bookings with Order Details & Status Update */}
             <div className="bg-[#111] border border-white/10 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-sm font-bold text-white">Recent Orders & Bookings</div>
@@ -680,7 +1057,7 @@ export default function DashboardPage() {
                 {fullOrdersList.slice(0, 3).map((o) => (
                   <div
                     key={o.id}
-                    onClick={() => setIsOrdersModalOpen(true)}
+                    onClick={() => setSelectedOrderForStatus(o)}
                     className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 hover:border-primary/40 cursor-pointer transition-all"
                   >
                     <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
@@ -699,7 +1076,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Live Notifications */}
+            {/* System Alerts & Notifications */}
             <div className="bg-[#111] border border-white/10 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-sm font-bold text-white flex items-center gap-2">
@@ -724,20 +1101,719 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
-
           </div>
-
-          {/* Requirement 3: OUR SERVICES & FEATURES SECTION AND THE NEXT FEATURED CARDS SECTION REMOVED AS INSTRUCTED */}
-
         </main>
       </div>
 
-      {/* REQUIREMENT 1 MODAL: MY LISTED CROPS & CULTIVATION HISTORY */}
+      {/* === MODAL 1: TOTAL INCOME BREAKDOWN MODAL (REQUIREMENT 3) === */}
+      {isIncomeModalOpen && (
+        <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#111] border border-white/10 rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Total Income Payment Breakdown</h2>
+                  <p className="text-xs text-gray-400">Detailed analytics of income generated across payment methods ({dealerTimeframe})</p>
+                </div>
+              </div>
+              <button onClick={() => setIsIncomeModalOpen(false)} className="text-gray-400 hover:text-white p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Income Cards by Payment Method */}
+            <div className="p-5 space-y-4 overflow-y-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+                  <div className="text-[10px] text-gray-400 font-semibold">KCC (Kishan Credit)</div>
+                  <div className="text-lg font-black text-amber-400" style={{ fontFamily: "Rajdhani, sans-serif" }}>₹2,43,900</div>
+                  <div className="text-[10px] text-gray-500">45% of total</div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+                  <div className="text-[10px] text-gray-400 font-semibold">KKW (Krivexa Wallet)</div>
+                  <div className="text-lg font-black text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>₹1,24,660</div>
+                  <div className="text-[10px] text-gray-500">23% of total</div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+                  <div className="text-[10px] text-gray-400 font-semibold">UPI Direct</div>
+                  <div className="text-lg font-black text-blue-400" style={{ fontFamily: "Rajdhani, sans-serif" }}>₹1,03,000</div>
+                  <div className="text-[10px] text-gray-500">19% of total</div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+                  <div className="text-[10px] text-gray-400 font-semibold">COD (Cash on Delivery)</div>
+                  <div className="text-lg font-black text-emerald-400" style={{ fontFamily: "Rajdhani, sans-serif" }}>₹70,440</div>
+                  <div className="text-[10px] text-gray-500">13% of total</div>
+                </div>
+              </div>
+
+              {/* Filter Tabs */}
+              <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+                <span className="text-xs font-semibold text-gray-400 mr-2">Filter Method:</span>
+                {[
+                  { key: "all", label: "All Payment Methods" },
+                  { key: "kcc", label: "KCC Card" },
+                  { key: "kkw", label: "KKW Wallet" },
+                  { key: "upi", label: "UPI" },
+                  { key: "cod", label: "COD" },
+                ].map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => setIncomePaymentFilter(f.key as any)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      incomePaymentFilter === f.key ? "bg-primary text-black" : "bg-white/5 text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Transaction List */}
+              <div className="space-y-2">
+                {filteredIncomeTx.map((tx) => (
+                  <div key={tx.id} className="bg-white/5 border border-white/5 rounded-xl p-3 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white">{tx.title}</span>
+                        <Badge className="bg-white/10 text-gray-300 text-[9px] uppercase font-mono">{tx.method}</Badge>
+                      </div>
+                      <div className="text-[11px] text-gray-400 mt-0.5">Customer: {tx.customer} · {tx.date}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-black text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>{tx.amount}</div>
+                      <div className="text-[9px] text-emerald-400 font-semibold">{tx.status}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-white/10 bg-white/5 flex justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setIsIncomeModalOpen(false)} className="border border-white/10 text-xs">
+                Close Analytics
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === MODAL 2: CUSTOMER SERVICES MODAL (REQUIREMENT 1) === */}
+      {isCustomerServicesModalOpen && (
+        <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#111] border border-amber-500/30 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
+                  <CreditCard className="h-5 w-5 text-amber-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Dealer Customer Services Hub</h2>
+                  <p className="text-xs text-gray-400">Perform KCC checks, KCC applications, Farmer registration, and POS billing</p>
+                </div>
+              </div>
+              <button onClick={() => setIsCustomerServicesModalOpen(false)} className="text-gray-400 hover:text-white p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Sub-tabs selector */}
+            <div className="flex items-center gap-2 p-3 bg-black/60 border-b border-white/10 overflow-x-auto">
+              {[
+                { id: "check", label: "Checking KCC Status", icon: Search },
+                { id: "apply", label: "Apply KCC for Farmers", icon: UserPlus },
+                { id: "register", label: "New Farmer Registration", icon: ShieldCheck },
+                { id: "pos", label: "Farmers KCC POS Billing", icon: Receipt },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setCustomerServiceTab(t.id as any)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                    customerServiceTab === t.id
+                      ? "bg-amber-500 text-black shadow-md shadow-amber-500/20"
+                      : "bg-white/5 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  <t.icon className="h-3.5 w-3.5" />
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4 flex-1">
+              
+              {/* TAB 1: CHECKING KCC STATUS */}
+              {customerServiceTab === "check" && (
+                <div className="space-y-4">
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <h3 className="text-sm font-bold text-white mb-1">Check Farmer KCC Card Status</h3>
+                    <p className="text-xs text-amber-400 font-semibold mb-3">Fill ANY ONE field below (Phone, Aadhaar, OR KCC Card Number) to verify status:</p>
+                    
+                    <form onSubmit={handleCheckKccStatus} className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-xs text-gray-300">Farmer Mobile Number</Label>
+                          <Input value={checkPhone} onChange={e => setCheckPhone(e.target.value)} placeholder="e.g. 9876543210" className="bg-white/5 border-white/10 text-white mt-1" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-300">Farmer Aadhaar Number</Label>
+                          <Input value={checkAadhaar} onChange={e => setCheckAadhaar(e.target.value)} placeholder="e.g. 1234-5678-9012" className="bg-white/5 border-white/10 text-white mt-1 font-mono" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-300">KCC Card Number</Label>
+                          <Input value={checkCardNum} onChange={e => setCheckCardNum(e.target.value)} placeholder="e.g. KCC-BH-2026-9041" className="bg-white/5 border-white/10 text-white mt-1 font-mono" />
+                        </div>
+                      </div>
+                      <Button type="submit" className="w-full bg-amber-500 text-black font-bold text-xs py-2">
+                        <Search className="h-4 w-4 mr-1" /> Search KCC Status
+                      </Button>
+                    </form>
+                  </div>
+
+                  {checkResult && (
+                    <div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-2 animate-in fade-in">
+                      {checkResult.notFound ? (
+                        <div className="text-center py-4 text-amber-400 text-xs font-semibold">
+                          ⚠️ No KCC Application record found for the provided phone or Aadhaar.
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
+                            <span className="text-xs font-bold text-white">{checkResult.fullName}</span>
+                            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] uppercase font-bold">
+                              Status: {checkResult.status}
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
+                            <div><span className="text-gray-500">Phone:</span> {checkResult.phone}</div>
+                            <div><span className="text-gray-500">Aadhaar:</span> {checkResult.aadhaar}</div>
+                            <div><span className="text-gray-500">Card Number:</span> <span className="font-mono font-bold text-amber-400">{checkResult.cardNumber || "KCC-BH-2026-9041"}</span></div>
+                            <div><span className="text-gray-500">District:</span> {checkResult.district}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 2: APPLY KCC FOR FARMERS */}
+              {customerServiceTab === "apply" && (
+                <div className="space-y-4">
+                  <form onSubmit={handleDealerApplyKccSubmit} className="space-y-3 bg-white/5 border border-white/10 rounded-xl p-4">
+                    <h3 className="text-sm font-bold text-white mb-2">Apply KCC Application on Behalf of Farmer</h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-gray-300">Farmer Full Name *</Label>
+                        <Input value={applyName} onChange={e => setApplyName(e.target.value)} placeholder="Full Name" className="bg-white/5 border-white/10 text-white mt-1" required />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-300">Phone Number *</Label>
+                        <Input value={applyPhone} onChange={e => setApplyPhone(e.target.value)} placeholder="10-digit mobile" className="bg-white/5 border-white/10 text-white mt-1" required />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-gray-300">Aadhaar Number *</Label>
+                        <Input value={applyAadhaar} onChange={e => setApplyAadhaar(e.target.value)} placeholder="12-digit Aadhaar" className="bg-white/5 border-white/10 text-white mt-1 font-mono" required />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-300">Land Size (in Acres)</Label>
+                        <Input value={applyLand} onChange={e => setApplyLand(e.target.value)} placeholder="e.g. 3.5" className="bg-white/5 border-white/10 text-white mt-1" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-gray-300">District</Label>
+                        <Input value={applyDistrict} onChange={e => setApplyDistrict(e.target.value)} className="bg-white/5 border-white/10 text-white mt-1" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-300">Village / Address</Label>
+                        <Input value={applyAddress} onChange={e => setApplyAddress(e.target.value)} placeholder="Village & PO" className="bg-white/5 border-white/10 text-white mt-1" />
+                      </div>
+                    </div>
+
+                    <Button type="submit" className="w-full bg-amber-500 text-black font-bold text-xs py-2.5 mt-2">
+                      <UserPlus className="h-4 w-4 mr-1.5" /> Submit KCC Application
+                    </Button>
+                  </form>
+
+                  {applyPdfInfo && (
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-amber-300">Applied Successfully PDF Ready!</div>
+                        <div className="text-[11px] text-gray-400">Official receipt generated for {applyName}</div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => downloadPdf(applyPdfInfo.dataUrl, applyPdfInfo.fileName)}
+                        className="bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs"
+                      >
+                        <Download className="h-4 w-4 mr-1" /> Download PDF Receipt
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 3: NEW FARMER REGISTRATION */}
+              {customerServiceTab === "register" && (
+                <div className="space-y-4">
+                  <form onSubmit={handleNewFarmerRegisterSubmit} className="space-y-3 bg-white/5 border border-white/10 rounded-xl p-4">
+                    <h3 className="text-sm font-bold text-white mb-2">Register New Farmer in System</h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-gray-300">Full Name *</Label>
+                        <Input value={regName} onChange={e => setRegName(e.target.value)} placeholder="Farmer Name" className="bg-white/5 border-white/10 text-white mt-1" required />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-300">Phone Number *</Label>
+                        <Input value={regPhone} onChange={e => setRegPhone(e.target.value)} placeholder="Mobile Number" className="bg-white/5 border-white/10 text-white mt-1" required />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-gray-300">Aadhaar Number *</Label>
+                        <Input value={regAadhaar} onChange={e => setRegAadhaar(e.target.value)} placeholder="12-digit Aadhaar" className="bg-white/5 border-white/10 text-white mt-1 font-mono" required />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-300">Land Holding Size</Label>
+                        <Input value={regLand} onChange={e => setRegLand(e.target.value)} placeholder="e.g. 4 Acres" className="bg-white/5 border-white/10 text-white mt-1" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <Label className="text-xs text-gray-300">Village</Label>
+                        <Input value={regVillage} onChange={e => setRegVillage(e.target.value)} placeholder="Village" className="bg-white/5 border-white/10 text-white mt-1" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-300">District</Label>
+                        <Input value={regDistrict} onChange={e => setRegDistrict(e.target.value)} className="bg-white/5 border-white/10 text-white mt-1" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-300">Pincode</Label>
+                        <Input value={regPincode} onChange={e => setRegPincode(e.target.value)} placeholder="800001" className="bg-white/5 border-white/10 text-white mt-1" />
+                      </div>
+                    </div>
+
+                    <Button type="submit" className="w-full bg-primary text-black font-bold text-xs py-2.5 mt-2">
+                      <ShieldCheck className="h-4 w-4 mr-1.5" /> Register Farmer Account
+                    </Button>
+                  </form>
+
+                  {regPdfInfo && (
+                    <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-primary">Registration Detailed PDF Created!</div>
+                        <div className="text-[11px] text-gray-400">Farmer account created for {regName}</div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => downloadPdf(regPdfInfo.dataUrl, regPdfInfo.fileName)}
+                        className="bg-primary hover:bg-primary/90 text-black font-bold text-xs"
+                      >
+                        <Download className="h-4 w-4 mr-1" /> Download Account PDF
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 4: FARMERS KCC POS BILLING & BALANCE CHECK */}
+              {customerServiceTab === "pos" && (
+                <div className="space-y-4">
+                  {/* Lookup form */}
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
+                    <h3 className="text-sm font-bold text-white">Check KCC Balance & Profile Info</h3>
+                    <p className="text-xs text-amber-400 font-semibold">Enter ANY ONE detail below (KCC Card Number, Aadhaar Number, OR Phone Number) to fetch profile & balance:</p>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <Label className="text-xs text-gray-300 mb-1 block">KCC Card Number</Label>
+                        <Input value={posQueryNum} onChange={e => setPosQueryNum(e.target.value)} placeholder="e.g. KCC-BH-2026-9041" className="bg-white/5 border-white/10 text-xs text-white font-mono" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-300 mb-1 block">Aadhaar Number</Label>
+                        <Input value={posQueryAadhaar} onChange={e => setPosQueryAadhaar(e.target.value)} placeholder="e.g. 1234-5678-9012" className="bg-white/5 border-white/10 text-xs text-white font-mono" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-300 mb-1 block">Mobile Number</Label>
+                        <Input value={posQueryPhone} onChange={e => setPosQueryPhone(e.target.value)} placeholder="e.g. 9876543210" className="bg-white/5 border-white/10 text-xs text-white" />
+                      </div>
+                    </div>
+
+                    <Button onClick={handleLookupFarmerPos} className="w-full bg-amber-500 text-black font-bold text-xs py-2">
+                      <Search className="h-3.5 w-3.5 mr-1" /> Fetch Card Balance & Profile
+                    </Button>
+                  </div>
+
+                  {/* Profile & Balance Card View */}
+                  {posFarmerProfile && posFarmerProfile.exists && (
+                    <div className="bg-black/60 border border-amber-500/30 rounded-xl p-4 space-y-3 animate-in fade-in">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                        <div>
+                          <div className="text-sm font-bold text-white">{posFarmerProfile.profile?.name}</div>
+                          <div className="text-xs text-gray-400">+91 {posFarmerProfile.profile?.phone} · {posFarmerProfile.profile?.district}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] text-gray-400">Available KCC Balance</div>
+                          <div className="text-xl font-black text-amber-400" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                            ₹{posFarmerProfile.cardInfo?.balance?.toLocaleString() || "25,000"}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
+                        <div><span className="text-gray-500">Aadhaar:</span> {posFarmerProfile.profile?.aadhaar}</div>
+                        <div><span className="text-gray-500">Card No:</span> <span className="font-mono text-amber-400 font-bold">{posFarmerProfile.profile?.cardNumber}</span></div>
+                        <div><span className="text-gray-500">Land Size:</span> {posFarmerProfile.profile?.landSize}</div>
+                        <div><span className="text-gray-500">KCC Status:</span> <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[9px]">ACTIVE ✅</Badge></div>
+                      </div>
+
+                      {/* Billing Action Box */}
+                      <div className="pt-3 border-t border-white/10 space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs text-gray-300">Bill Amount (₹) *</Label>
+                            <Input type="number" value={posAmount} onChange={e => setPosAmount(e.target.value)} placeholder="Amount to charge" className="bg-white/5 border-white/10 text-white mt-1" />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-gray-300">Item Description</Label>
+                            <Input value={posItemDesc} onChange={e => setPosItemDesc(e.target.value)} placeholder="e.g. 2 Bags Fertilizer" className="bg-white/5 border-white/10 text-white mt-1" />
+                          </div>
+                        </div>
+
+                        <Button onClick={handleInitiatePosBilling} className="w-full bg-primary text-black font-bold text-xs py-2.5">
+                          <Receipt className="h-4 w-4 mr-1.5" /> Process POS Billing (Send OTP)
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {posReceiptPdf && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-emerald-300">POS Payment Debited & Receipt Generated!</div>
+                        <div className="text-[11px] text-gray-400">Invoice ready for download</div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => downloadPdf(posReceiptPdf.dataUrl, posReceiptPdf.fileName)}
+                        className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs"
+                      >
+                        <Download className="h-4 w-4 mr-1" /> Download Invoice PDF
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+
+            <div className="p-4 border-t border-white/10 bg-white/5 flex justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setIsCustomerServicesModalOpen(false)} className="border border-white/10 text-xs">
+                Close Services Hub
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POS OTP VERIFICATION MODAL */}
+      {posOtpModal && (
+        <div className="fixed inset-0 z-250 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
+          <div className="bg-[#141414] border border-amber-500/40 rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mx-auto mb-3 text-amber-400">
+              <Lock className="h-6 w-6" />
+            </div>
+            <h3 className="text-base font-bold text-white mb-1">Farmer OTP Authorization</h3>
+            <p className="text-xs text-gray-400 mb-4">
+              Enter the 4-digit security OTP sent to farmer's mobile to authorize debit of <strong className="text-amber-400">₹{posAmount}</strong>
+            </p>
+
+            <div className="bg-white/5 border border-white/10 rounded-xl p-3 mb-4">
+              <div className="text-[10px] text-gray-500 font-mono mb-1">[DEMO OTP SENT TO FARMER]</div>
+              <div className="text-2xl font-black text-primary tracking-widest">{posGeneratedOtp}</div>
+            </div>
+
+            <Input
+              type="text"
+              maxLength={4}
+              value={posInputOtp}
+              onChange={e => setPosInputOtp(e.target.value)}
+              placeholder="ENTER 4-DIGIT OTP"
+              className="text-center font-mono text-lg font-bold bg-white/5 border-white/10 text-white mb-4 tracking-widest"
+            />
+
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setPosOtpModal(false)} className="flex-1 border border-white/10 text-xs">
+                Cancel
+              </Button>
+              <Button onClick={handleVerifyOtpAndChargePos} className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs">
+                Verify & Debit
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === MODAL 3: ADD NEW PRODUCTS OR SERVICES MODAL (REQUIREMENT 4) === */}
+      {isAddListingModalOpen && (
+        <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#111] border border-primary/30 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+                  <Plus className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Add New Products or Services</h2>
+                  <p className="text-xs text-gray-400">List Products, Machinery fleet, or Labour for Admin Approval & Marketplace display</p>
+                </div>
+              </div>
+              <button onClick={() => setIsAddListingModalOpen(false)} className="text-gray-400 hover:text-white p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Selection Selector */}
+            <div className="flex items-center gap-2 p-3 bg-black/60 border-b border-white/10">
+              <span className="text-xs font-semibold text-gray-400 mr-2">Select Type:</span>
+              {[
+                { id: "product", label: "Agricultural Product", icon: Package },
+                { id: "machinery", label: "Machinery Fleet", icon: Tractor },
+                { id: "labour", label: "Single Labour / Worker", icon: User },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setListingType(t.id as any)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    listingType === t.id
+                      ? "bg-primary text-black shadow-md shadow-primary/20"
+                      : "bg-white/5 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  <t.icon className="h-3.5 w-3.5" />
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Form Fields */}
+            <form onSubmit={handleAddListingSubmit} className="p-5 overflow-y-auto space-y-4 flex-1">
+              
+              <div>
+                <Label className="text-xs text-gray-300 font-medium">
+                  {listingType === "labour" ? "Worker Full Name *" : "Title / Name *"}
+                </Label>
+                <Input
+                  value={listTitle}
+                  onChange={e => setListTitle(e.target.value)}
+                  placeholder={listingType === "product" ? "e.g. Bio Organic Fertilizer 50kg" : listingType === "machinery" ? "e.g. Tractor 45HP + Harvester" : "e.g. Ramesh Kumar (Harvester Labour)"}
+                  className="bg-white/5 border-white/10 text-white mt-1"
+                  required
+                />
+              </div>
+
+              {listingType === "product" ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-gray-300 font-medium">Category</Label>
+                    <select value={listCategory} onChange={e => setListCategory(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/10 text-white text-xs rounded-xl p-2.5 mt-1 outline-none">
+                      <option value="Seeds">Seeds</option>
+                      <option value="Fertilizers">Fertilizers</option>
+                      <option value="Pesticides">Pesticides</option>
+                      <option value="Farm Tools">Farm Tools</option>
+                      <option value="Organic">Organic</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-300 font-medium">Unit / Packaging</Label>
+                    <Input value={listUnit} onChange={e => setListUnit(e.target.value)} placeholder="e.g. 50 kg bag / 1 Litre" className="bg-white/5 border-white/10 text-white mt-1" />
+                  </div>
+                </div>
+              ) : listingType === "labour" ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-gray-300 font-medium">Skill / Specialization</Label>
+                    <Input value={listCategory} onChange={e => setListCategory(e.target.value)} placeholder="e.g. Paddy Harvesting, Sowing, Spraying" className="bg-white/5 border-white/10 text-white mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-300 font-medium">Working Hours / Shift</Label>
+                    <Input value={listUnit} onChange={e => setListUnit(e.target.value)} placeholder="e.g. per day (8 Hours)" className="bg-white/5 border-white/10 text-white mt-1" />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-gray-300 font-medium">Machinery Type</Label>
+                    <Input value={listCategory} onChange={e => setListCategory(e.target.value)} placeholder="e.g. Tractor, Harvester, Rotavator" className="bg-white/5 border-white/10 text-white mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-300 font-medium">Rental Rate Unit</Label>
+                    <Input value={listUnit} onChange={e => setListUnit(e.target.value)} placeholder="e.g. per hour / per acre" className="bg-white/5 border-white/10 text-white mt-1" />
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-300 font-medium">
+                    {listingType === "labour" ? "Daily Wage Rate (₹ / Day) *" : "Price / Rental Rate (₹) *"}
+                  </Label>
+                  <Input type="number" value={listPrice} onChange={e => setListPrice(e.target.value)} placeholder={listingType === "labour" ? "e.g. 500" : "Selling Price"} className="bg-white/5 border-white/10 text-white mt-1" required />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-300 font-medium">Location / Service Area</Label>
+                  <Input value={listLocation} onChange={e => setListLocation(e.target.value)} placeholder="Patna, Bihar" className="bg-white/5 border-white/10 text-white mt-1" />
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs text-gray-300 font-medium">Description & Experience</Label>
+                <Input value={listDesc} onChange={e => setListDesc(e.target.value)} placeholder={listingType === "labour" ? "Worker experience, age, phone number, availability..." : "Add product specification or service description..."} className="bg-white/5 border-white/10 text-white mt-1" />
+              </div>
+
+              {/* DUAL IMAGE UPLOAD (DEVICE & CAMERA) */}
+              <div>
+                <Label className="text-xs text-gray-300 mb-1.5 block font-medium">
+                  {listingType === "labour" ? "Worker Photo" : listingType === "machinery" ? "Machinery Photo" : "Product Photo"}
+                </Label>
+                
+                {listImg ? (
+                  <div className="relative border border-primary/40 rounded-xl p-2 bg-white/5 flex items-center gap-3">
+                    <img src={listImg} alt="Preview" className="w-14 h-14 object-cover rounded-lg border border-white/10" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-primary truncate">✓ Photo Attached</p>
+                      <p className="text-[10px] text-gray-400">Ready to submit with listing</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setListImg("")}
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10 text-xs flex items-center gap-1"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Option 1: Device Upload */}
+                    <label className="cursor-pointer flex flex-col items-center justify-center p-3 border border-dashed border-white/20 hover:border-primary/50 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-center">
+                      <Upload className="h-5 w-5 text-primary mb-1" />
+                      <span className="text-xs font-semibold text-white">Upload from Device</span>
+                      <span className="text-[10px] text-gray-400">Choose image file</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageFileUpload}
+                      />
+                    </label>
+
+                    {/* Option 2: Camera Upload */}
+                    <label className="cursor-pointer flex flex-col items-center justify-center p-3 border border-dashed border-white/20 hover:border-primary/50 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-center">
+                      <Camera className="h-5 w-5 text-primary mb-1" />
+                      <span className="text-xs font-semibold text-white">Upload by Camera</span>
+                      <span className="text-[10px] text-gray-400">Take live photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleImageFileUpload}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-white/10">
+                <Button type="submit" className="w-full bg-primary text-black font-bold text-xs py-2.5">
+                  <Send className="h-4 w-4 mr-1.5" /> Submit Listing for Admin Approval
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* === MODAL 4: ORDER DETAILS & DEALER STATUS UPDATE (REQUIREMENT 4) === */}
+      {selectedOrderForStatus && (
+        <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#111] border border-white/10 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <PackageCheck className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-base text-white">Order Details & Status Control</h3>
+              </div>
+              <button onClick={() => setSelectedOrderForStatus(null)} className="text-gray-400 hover:text-white p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="font-mono text-gray-400 font-bold">#{selectedOrderForStatus.id}</span>
+                <Badge className={`text-[10px] border px-2 py-0.5 ${selectedOrderForStatus.statusBadge}`}>
+                  Current Status: {selectedOrderForStatus.status}
+                </Badge>
+              </div>
+
+              <h4 className="text-sm font-bold text-white pt-1">{selectedOrderForStatus.title}</h4>
+              <p className="text-gray-400">Customer: <strong className="text-white">{selectedOrderForStatus.customerName || "Farmer"}</strong> ({selectedOrderForStatus.customerPhone})</p>
+              <p className="text-gray-400">Delivery Address: <span className="text-gray-200">{selectedOrderForStatus.address || "Bihar"}</span></p>
+              <p className="text-gray-400">Payment Method: <span className="text-primary font-bold">{selectedOrderForStatus.paymentMethod || "KCC"}</span></p>
+              <p className="text-gray-400">Total Amount: <span className="text-lg font-black text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>{selectedOrderForStatus.amount}</span></p>
+            </div>
+
+            {/* Status Update Actions for Dealer */}
+            <div className="space-y-2 pt-2 border-t border-white/10">
+              <Label className="text-xs font-bold text-gray-300">Update Order Delivery Status:</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {["Confirmed", "Packed", "Dispatched", "Delivered"].map((st) => (
+                  <Button
+                    key={st}
+                    size="sm"
+                    onClick={() => {
+                      updateOrderStatus(selectedOrderForStatus.id, st as any);
+                      setSelectedOrderForStatus((prev: any) => prev ? { ...prev, status: st } : prev);
+                      toast.success(`Order status updated to "${st}"! Notification sent to farmer.`);
+                    }}
+                    className={`text-xs font-bold ${
+                      selectedOrderForStatus.status === st
+                        ? "bg-primary text-black"
+                        : "bg-white/5 border border-white/10 text-gray-300 hover:text-white"
+                    }`}
+                  >
+                    {st}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedOrderForStatus(null)} className="border border-white/10 text-xs">
+                Close Details
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REQUIREMENT 1 MODAL: MY LISTED CROPS */}
       {isCropsModalOpen && (
         <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#111] border border-white/10 rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-            
-            {/* Modal Header */}
             <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
@@ -748,15 +1824,11 @@ export default function DashboardPage() {
                   <p className="text-xs text-gray-400">All crops listed for sale and active cultivation details</p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsCropsModalOpen(false)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer"
-              >
+              <button onClick={() => setIsCropsModalOpen(false)} className="p-1.5 rounded-lg text-gray-400 hover:text-white cursor-pointer">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Modal Content List */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-xs font-semibold text-gray-400">
@@ -769,67 +1841,31 @@ export default function DashboardPage() {
                 </Link>
               </div>
 
-              {allUserCrops.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 text-sm">
-                  No crop listings found. Click "Sell New Crop" to list your first harvest!
-                </div>
-              ) : (
-                allUserCrops.map((crop) => (
-                  <div
-                    key={crop.id}
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:border-primary/40 transition-all"
-                  >
-                    <img
-                      src={crop.image}
-                      alt={crop.cropName}
-                      className="w-full sm:w-24 h-24 rounded-xl object-cover border border-white/10 shrink-0"
-                    />
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-white">{crop.cropName}</h3>
-                        <Badge
-                          className={`text-[10px] px-2 py-0.5 capitalize border ${
-                            crop.status === "approved"
-                              ? "bg-primary/20 text-primary border-primary/30"
-                              : crop.status === "rejected"
-                              ? "bg-red-500/20 text-red-400 border-red-500/30"
-                              : "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                          }`}
-                        >
-                          {crop.status === "approved" ? "Approved ✅" : crop.status === "growing" ? "Active Cultivation 🌾" : "Pending Review ⏳"}
-                        </Badge>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-300">
-                        <div><span className="text-gray-500">Weight / Quantity:</span> <span className="font-semibold text-white">{crop.weight}</span></div>
-                        <div><span className="text-gray-500">Listing Price:</span> <span className="font-semibold text-primary">₹{crop.price}/Quintal</span></div>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-gray-500 shrink-0" />
-                          <span className="text-gray-400 truncate">{crop.district}, {crop.city || "Bihar"}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-gray-500 shrink-0" />
-                          <span className="text-gray-400">{new Date(crop.createdAt).toLocaleDateString("en-IN")}</span>
-                        </div>
-                      </div>
-
-                      <div className="text-[11px] text-gray-400 pt-1">
-                        Seller: <span className="text-white font-medium">{crop.sellerName}</span> ({crop.phone})
-                      </div>
+              {allUserCrops.map((crop) => (
+                <div key={crop.id} className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:border-primary/40 transition-all">
+                  <img src={crop.image} alt={crop.cropName} className="w-full sm:w-24 h-24 rounded-xl object-cover border border-white/10 shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-white">{crop.cropName}</h3>
+                      <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] capitalize">
+                        {crop.status || "Growing"}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-300">
+                      <div><span className="text-gray-500">Weight:</span> <span className="font-semibold text-white">{crop.weight}</span></div>
+                      <div><span className="text-gray-500">Price:</span> <span className="font-semibold text-primary">₹{crop.price}/Quintal</span></div>
+                      <div><span className="text-gray-400">{crop.district}, {crop.city || "Bihar"}</span></div>
                     </div>
                   </div>
-                ))
-              )}
+                </div>
+              ))}
             </div>
 
-            {/* Modal Footer */}
-            <div className="p-4 border-t border-white/10 bg-white/5 flex items-center justify-between">
-              <span className="text-xs text-gray-400">Manage all your listed crop stock & prices dynamically</span>
+            <div className="p-4 border-t border-white/10 bg-white/5 flex justify-end">
               <Button variant="ghost" size="sm" onClick={() => setIsCropsModalOpen(false)} className="border border-white/10 text-xs">
                 Close
               </Button>
             </div>
-
           </div>
         </div>
       )}
@@ -838,8 +1874,6 @@ export default function DashboardPage() {
       {isOrdersModalOpen && (
         <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#111] border border-white/10 rounded-2xl max-w-4xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
-            
-            {/* Modal Header */}
             <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
@@ -850,19 +1884,15 @@ export default function DashboardPage() {
                   <p className="text-xs text-gray-400">Complete record of fertilizers, seeds, crops, labour & machinery bookings</p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsOrdersModalOpen(false)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer"
-              >
+              <button onClick={() => setIsOrdersModalOpen(false)} className="p-1.5 rounded-lg text-gray-400 hover:text-white cursor-pointer">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Filter Tabs Header */}
             <div className="px-5 pt-3 border-b border-white/10 flex items-center gap-2 overflow-x-auto bg-[#0d0d0d]">
               {[
-                { id: "all", label: `All Bookings & Orders (${fullOrdersList.length})` },
-                { id: "inputs", label: "Input Purchases & Fertilizers" },
+                { id: "all", label: `All Orders (${fullOrdersList.length})` },
+                { id: "inputs", label: "Input Purchases" },
                 { id: "machinery", label: "Machinery Bookings" },
                 { id: "labour", label: "Labour Bookings" },
               ].map((tab) => (
@@ -880,78 +1910,42 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {/* Modal Content List */}
             <div className="flex-1 overflow-y-auto p-5 space-y-3">
-              {filteredOrders.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 text-sm">
-                  No orders found under this category.
-                </div>
-              ) : (
-                filteredOrders.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:border-primary/40 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-                  >
-                    <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                      <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
-                        <item.icon className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs text-gray-400 font-mono font-bold">#{item.id}</span>
-                          <Badge className="bg-white/10 text-gray-300 border-white/10 text-[10px] font-medium">
-                            {item.categoryName}
-                          </Badge>
-                        </div>
-                        <h3 className="text-sm font-bold text-white truncate mt-0.5">{item.title}</h3>
-                        <div className="text-xs text-gray-400 flex items-center gap-3 mt-1">
-                          <span>Vendor/Provider: <strong className="text-gray-300">{item.vendor}</strong></span>
-                          <span>• {item.date}</span>
-                        </div>
-                      </div>
+              {filteredOrders.map((item) => (
+                <div key={item.id} className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                    <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
+                      <item.icon className="h-5 w-5 text-primary" />
                     </div>
-
-                    <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5 gap-2">
-                      <div className="text-right">
-                        <div className="text-sm font-black text-primary">{item.amount}</div>
-                        <Badge className={`text-[10px] border px-2 py-0.5 mt-0.5 ${item.statusBadge}`}>
-                          {item.status}
-                        </Badge>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 font-mono font-bold">#{item.id}</span>
+                        <Badge className="bg-white/10 text-gray-300 text-[10px]">{item.categoryName}</Badge>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setSelectedOrderDetails(selectedOrderDetails?.id === item.id ? null : item)}
-                        className="text-xs text-gray-400 hover:text-white underline flex items-center gap-1 cursor-pointer"
-                      >
-                        {selectedOrderDetails?.id === item.id ? "Hide Details" : "View Invoice"}
-                      </button>
+                      <h3 className="text-sm font-bold text-white truncate mt-0.5">{item.title}</h3>
+                      <div className="text-xs text-gray-400">{item.date}</div>
                     </div>
-
-                    {/* Detailed Invoice Breakdown view */}
-                    {selectedOrderDetails?.id === item.id && (
-                      <div className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-gray-300 space-y-1.5 animate-in fade-in">
-                        <div className="font-bold text-white text-xs border-b border-white/10 pb-1">
-                          Booking Details & Log Summary
-                        </div>
-                        <p>ℹ️ <strong>Status Log:</strong> {item.details}</p>
-                        <p>📅 <strong>Date Registered:</strong> {item.date}</p>
-                        <p>💳 <strong>Payment Status:</strong> Paid via Kisan Wallet / COD</p>
-                      </div>
-                    )}
                   </div>
-                ))
-              )}
+
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-black text-primary">{item.amount}</div>
+                    <Badge className={`text-[10px] border px-2 py-0.5 ${item.statusBadge}`}>{item.status}</Badge>
+                    <button
+                      onClick={() => setSelectedOrderForStatus(item)}
+                      className="block text-[10px] text-gray-400 hover:text-white underline mt-1"
+                    >
+                      Update Status
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
 
-            {/* Modal Footer */}
-            <div className="p-4 border-t border-white/10 bg-white/5 flex items-center justify-between">
-              <span className="text-xs text-gray-400">All bookings are tracked with real-time status updates</span>
+            <div className="p-4 border-t border-white/10 bg-white/5 flex justify-end">
               <Button variant="ghost" size="sm" onClick={() => setIsOrdersModalOpen(false)} className="border border-white/10 text-xs">
                 Close
               </Button>
             </div>
-
           </div>
         </div>
       )}

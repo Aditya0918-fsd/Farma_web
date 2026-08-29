@@ -12,12 +12,13 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import type { MandiRate } from "@/context/AppContext.tsx";
 
-type Tab = "crops" | "machinery" | "labour" | "expert" | "mandi" | "kcc" | "labourTypes" | "notifications";
+type Tab = "crops" | "dealerListings" | "machinery" | "labour" | "expert" | "mandi" | "kcc" | "labourTypes" | "notifications";
 
 export default function AdminDashboard() {
   const {
     adminLogout,
     cropListings, approveCropListing, rejectCropListing,
+    dealerListings, approveDealerListing, rejectDealerListing,
     machineryBookings, allotMachineryBooking, rejectMachineryBooking,
     labourBookings, assignLaboursToBooking,
     expertAdviceQueries, updateExpertQueryStatus,
@@ -42,6 +43,7 @@ export default function AdminDashboard() {
 
   const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "notifications", label: "Global Activity Log", icon: Bell },
+    { id: "dealerListings", label: "Dealer Listings Approval", icon: Package },
     { id: "crops", label: "Crop Listings", icon: Package },
     { id: "machinery", label: "Machinery Booking", icon: Tractor },
     { id: "labour", label: "Labour Requests", icon: Users },
@@ -101,6 +103,43 @@ export default function AdminDashboard() {
         </aside>
 
         <main className="flex-1 p-4 md:p-6 space-y-4 max-w-5xl">
+
+          {/* DEALER PRODUCT/SERVICE LISTINGS APPROVAL */}
+          {tab === "dealerListings" && (
+            <div>
+              <h2 className="text-xl font-bold mb-4">Dealer Products & Services Submissions</h2>
+              {dealerListings.length === 0 && <p className="text-gray-500 text-sm">No dealer products/services submitted yet.</p>}
+              <div className="space-y-3">
+                {dealerListings.map(d => (
+                  <div key={d.id} className="bg-[#111] border border-white/10 rounded-xl p-4">
+                    <div className="flex items-start gap-4">
+                      {d.image && <img src={d.image} alt={d.title} className="w-16 h-16 rounded-lg object-cover shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="font-bold">{d.title}</h3>
+                          <Badge className="bg-white/10 text-gray-300 text-[10px] uppercase font-mono">{d.type}</Badge>
+                          <StatusBadge status={d.status} />
+                        </div>
+                        <p className="text-sm text-gray-400">Dealer: <strong className="text-white">{d.dealerName}</strong> · Location: {d.location || "Bihar"}</p>
+                        <p className="text-sm text-gray-300">Price: <span className="text-primary font-bold">₹{d.price}</span> ({d.unit || "unit"})</p>
+                        {d.description && <p className="text-xs text-gray-400 mt-1">{d.description}</p>}
+                      </div>
+                      {d.status === "pending" && (
+                        <div className="flex gap-2 shrink-0">
+                          <Button size="sm" onClick={() => { approveDealerListing(d.id); toast.success("Dealer listing approved!"); }} className="bg-primary text-black font-bold text-xs h-8">
+                            <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => { rejectDealerListing(d.id); toast.error("Dealer listing rejected."); }} className="border border-red-500/20 text-red-400 text-xs h-8">
+                            <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* CROP LISTINGS */}
           {tab === "crops" && (
