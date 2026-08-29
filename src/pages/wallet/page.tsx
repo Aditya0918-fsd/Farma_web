@@ -578,7 +578,7 @@ export default function WalletPage() {
                             <div className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Transaction Summary</div>
                             <div className="flex justify-between text-xs text-gray-400">
                               <span>Product/Service</span>
-                              <span className="text-white font-medium truncate max-w-[150px]">{billItem || "General Purchase"}</span>
+                              <span className="text-white font-medium truncate max-w-37.5">{billItem || "General Purchase"}</span>
                             </div>
                             <div className="flex justify-between text-xs text-gray-400">
                               <span>Subtotal</span>

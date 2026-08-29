@@ -1083,16 +1083,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (queryVal.length >= 3) {
       return {
         id: `kcc-${Date.now()}`,
-        userId: "demo-farmer",
         fullName: "Ramesh Kumar (Farmer)",
         phone: cleanPhone || "9876543210",
         aadhaar: cleanAadhaar || "1234-5678-9012",
         cardNumber: cleanCard || "KCC-BH-2026-9041",
         landSize: "3.5 Acres",
-        cropType: "Wheat & Paddy",
         district: "Patna",
         address: "Bihta, Bihar",
-        bankName: "State Bank of India",
         status: "approved",
         createdAt: new Date().toISOString(),
       };
@@ -1149,7 +1146,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Fallback demo profile if dealer searches ANY valid identifier
     return {
       exists: true,
-      kccApp: null,
+      kccApp: undefined,
       cardInfo: { exists: true, cardHolder: "Farmer Account", balance: 50000, status: "active" },
       profile: {
         name: "Ramesh Kumar (Farmer)",
