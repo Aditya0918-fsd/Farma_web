@@ -29,6 +29,7 @@ import NotificationsPage from "./pages/notifications/page.tsx";
 import MachineryBookingPage from "./pages/machinery-booking/page.tsx";
 import ProfilePage from "./pages/profile/page.tsx";
 import CartPage from "./pages/cart/page.tsx";
+import KisanPathshalaPage from "./pages/kisan-pathshala/page.tsx";
 
 function AppInner() {
   useServiceWorker();
@@ -59,6 +60,7 @@ function AppInner() {
           <Route path="/crop-calendar" element={<CropCalendarPage />} />
           <Route path="/government-schemes" element={<GovernmentSchemesPage />} />
           <Route path="/farming-tips" element={<FarmingTipsPage />} />
+          <Route path="/kisan-pathshala" element={<KisanPathshalaPage />} />
           <Route path="/help-center" element={<HelpCenterPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />

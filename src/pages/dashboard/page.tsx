@@ -6,7 +6,7 @@ import {
   Search, ArrowUpRight, Plus, Eye, LogOut, CheckCheck, Home, CreditCard,
   CheckCircle2, Clock, Filter, MapPin, Calendar, Tag, ChevronRight, Package,
   UserPlus, Receipt, Download, ShieldCheck, CheckCircle, RefreshCw, Send, Lock,
-  PackageCheck, AlertCircle, Upload, Camera, Trash2
+  PackageCheck, AlertCircle, Upload, Camera, Trash2, Edit2, Save
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -36,6 +36,7 @@ export default function DashboardPage() {
     getFarmerProfileByDetails,
     orders: contextOrders,
     updateOrderStatus,
+    updateDealerListing,
   } = useApp();
 
   const location = useLocation();
@@ -117,6 +118,15 @@ export default function DashboardPage() {
 
   // Selected Order Detail Modal for Dealer status update
   const [selectedOrderForStatus, setSelectedOrderForStatus] = useState<any>(null);
+
+  // Edit Products Modal
+  const [isEditProductsModalOpen, setIsEditProductsModalOpen] = useState(false);
+  const [editingListingId, setEditingListingId] = useState<string | null>(null);
+  const [editListTitle, setEditListTitle] = useState("");
+  const [editListPrice, setEditListPrice] = useState("");
+  const [editListDesc, setEditListDesc] = useState("");
+  const [editListUnit, setEditListUnit] = useState("");
+  const [editListLocation, setEditListLocation] = useState("");
 
   const DEALER_ANALYTICS: Record<string, { income: string; orders: number; sales: string; growth: string }> = {
     "1day": { income: "₹18,450", orders: 14, sales: "₹42,800", growth: "+4.2% vs yesterday" },
@@ -924,6 +934,14 @@ export default function DashboardPage() {
                       <Users className="h-3.5 w-3.5 mr-1 text-primary" /> Labour
                     </Button>
                   </div>
+                  {/* Edit Products Button */}
+                  <Button
+                    onClick={() => setIsEditProductsModalOpen(true)}
+                    variant="outline"
+                    className="w-full bg-white/5 border-white/10 hover:border-amber-500/40 text-xs font-semibold text-amber-300 mt-2"
+                  >
+                    <Edit2 className="h-3.5 w-3.5 mr-1 text-amber-400" /> Edit / Relist My Products
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1943,6 +1961,162 @@ export default function DashboardPage() {
 
             <div className="p-4 border-t border-white/10 bg-white/5 flex justify-end">
               <Button variant="ghost" size="sm" onClick={() => setIsOrdersModalOpen(false)} className="border border-white/10 text-xs">
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === MODAL 5: EDIT PRODUCTS (DEALER) === */}
+      {isEditProductsModalOpen && (
+        <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#111] border border-amber-500/30 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+                  <Edit2 className="h-5 w-5 text-amber-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Edit & Relist My Products</h2>
+                  <p className="text-xs text-gray-400">Update details or relist rejected/approved products back to pending</p>
+                </div>
+              </div>
+              <button onClick={() => { setIsEditProductsModalOpen(false); setEditingListingId(null); }} className="text-gray-400 hover:text-white p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              {dealerListings.filter(d => d.dealerId === user?.id || true).length === 0 && (
+                <p className="text-gray-500 text-sm text-center py-8">No listings found. Add products first.</p>
+              )}
+              {dealerListings.map(d => (
+                <div key={d.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  {editingListingId === d.id ? (
+                    // Inline Edit Form
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Edit2 className="h-4 w-4 text-amber-400" />
+                        <span className="text-sm font-bold text-white">Editing: {d.title}</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs text-gray-300 mb-1 block">Title / Name *</Label>
+                          <input
+                            value={editListTitle}
+                            onChange={e => setEditListTitle(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 text-white text-xs rounded-xl px-3 py-2 outline-none focus:border-amber-500/40"
+                            placeholder="Product or service name"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-300 mb-1 block">Price / Rate (₹)</Label>
+                          <input
+                            type="number"
+                            value={editListPrice}
+                            onChange={e => setEditListPrice(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 text-white text-xs rounded-xl px-3 py-2 outline-none focus:border-amber-500/40"
+                            placeholder="Amount in ₹"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-300 mb-1 block">Unit</Label>
+                          <input
+                            value={editListUnit}
+                            onChange={e => setEditListUnit(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 text-white text-xs rounded-xl px-3 py-2 outline-none focus:border-amber-500/40"
+                            placeholder="e.g. 50 kg bag / per hour"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-300 mb-1 block">Location</Label>
+                          <input
+                            value={editListLocation}
+                            onChange={e => setEditListLocation(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 text-white text-xs rounded-xl px-3 py-2 outline-none focus:border-amber-500/40"
+                            placeholder="City, Bihar"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs text-gray-300 mb-1 block">Description</Label>
+                          <input
+                            value={editListDesc}
+                            onChange={e => setEditListDesc(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 text-white text-xs rounded-xl px-3 py-2 outline-none focus:border-amber-500/40"
+                            placeholder="Product/service description..."
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (!editListTitle.trim()) { toast.error("Title is required."); return; }
+                            updateDealerListing(d.id, {
+                              title: editListTitle,
+                              price: Number(editListPrice) || d.price,
+                              description: editListDesc,
+                              unit: editListUnit,
+                              location: editListLocation,
+                              status: "pending"
+                            });
+                            setEditingListingId(null);
+                            toast.success("Listing updated & resubmitted for admin approval!");
+                          }}
+                          className="bg-amber-500 text-black font-bold text-xs"
+                        >
+                          <Save className="h-3.5 w-3.5 mr-1" /> Save & Relist for Approval
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditingListingId(null)}
+                          className="border border-white/10 text-gray-300 text-xs"
+                        >
+                          <X className="h-3.5 w-3.5 mr-1" /> Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    // Listing Summary Row
+                    <div className="flex items-start gap-4">
+                      {d.image && <img src={d.image} alt={d.title} className="w-14 h-14 rounded-lg object-cover shrink-0 border border-white/10" />}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="font-bold text-sm text-white">{d.title}</h3>
+                          <span className={`text-[10px] font-semibold border rounded-full px-2 py-0.5 ${
+                            d.status === "approved" ? "bg-primary/10 text-primary border-primary/20" :
+                            d.status === "rejected" ? "bg-red-500/10 text-red-400 border-red-500/20" :
+                            "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                          }`}>{d.status}</span>
+                        </div>
+                        <p className="text-xs text-gray-400">₹{d.price} / {d.unit || "unit"} · {d.location || "Bihar"}</p>
+                        {d.description && <p className="text-xs text-gray-500 mt-0.5 truncate">{d.description}</p>}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingListingId(d.id);
+                          setEditListTitle(d.title);
+                          setEditListPrice(String(d.price));
+                          setEditListDesc(d.description || "");
+                          setEditListUnit(d.unit || "");
+                          setEditListLocation(d.location || "");
+                        }}
+                        className="border border-amber-500/20 text-amber-400 text-xs h-8 shrink-0"
+                      >
+                        <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="p-4 border-t border-white/10 bg-white/5 flex justify-end">
+              <Button variant="ghost" size="sm" onClick={() => { setIsEditProductsModalOpen(false); setEditingListingId(null); }} className="border border-white/10 text-xs">
                 Close
               </Button>
             </div>

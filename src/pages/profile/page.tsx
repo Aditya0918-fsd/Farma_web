@@ -305,7 +305,7 @@ export default function ProfilePage() {
           </button>
 
           <Link
-            to="/farming-tips"
+            to="/kisan-pathshala"
             className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors text-sm font-medium text-gray-200 group"
           >
             <div className="flex items-center gap-3">

@@ -469,8 +469,10 @@ export default function Index() {
     { icon: MessageSquare, label: t.services.expertAdviceTitle, desc: t.services.expertAdviceDesc, href: "/expert-advice" },
     { icon: CloudSun, label: t.services.weatherTitle, desc: t.services.weatherDesc, href: "/weather" },
     { icon: Wallet, label: t.services.walletTitle, desc: t.services.walletDesc, href: "/wallet" },
-    { icon: ShieldCheck, label: "Customer Services", desc: "KCC, Registration & POS Billing", action: () => setIsCustomerServicesModalOpen(true) },
-    { icon: Plus, label: "Add Products/Services", desc: "List products, machinery & labour", action: () => setIsAddListingModalOpen(true) },
+    ...(user?.role === "dealer" ? [
+      { icon: ShieldCheck, label: "Customer Services", desc: "KCC, Registration & POS Billing", action: () => setIsCustomerServicesModalOpen(true) },
+      { icon: Plus, label: "Add Products/Services", desc: "List products, machinery & labour", action: () => setIsAddListingModalOpen(true) },
+    ] : []),
   ];
 
   const FEATURES = [
@@ -481,8 +483,10 @@ export default function Index() {
     { icon: Users, title: t.farmerNeeds.f4Title, desc: t.farmerNeeds.f4Desc, href: "/labour-booking", badge: t.farmerNeeds.f4Badge },
     { icon: MessageSquare, title: t.farmerNeeds.f5Title, desc: t.farmerNeeds.f5Desc, href: "/expert-advice", badge: t.farmerNeeds.f5Badge },
     { icon: CloudSun, title: t.farmerNeeds.f6Title, desc: t.farmerNeeds.f6Desc, href: "/weather", badge: t.farmerNeeds.f6Badge },
-    { icon: ShieldCheck, title: "Customer Services", desc: "KCC Status, Farmer Registration & POS Billing", href: "#", badge: "New Hub", action: () => setIsCustomerServicesModalOpen(true) },
-    { icon: Plus, title: "Add Products or Services", desc: "Submit product listings, machinery fleet & worker teams", href: "#", badge: "Dealer Tool", action: () => setIsAddListingModalOpen(true) },
+    ...(user?.role === "dealer" ? [
+      { icon: ShieldCheck, title: "Customer Services", desc: "KCC Status, Farmer Registration & POS Billing", href: "#", badge: "New Hub", action: () => setIsCustomerServicesModalOpen(true) },
+      { icon: Plus, title: "Add Products or Services", desc: "Submit product listings, machinery fleet & worker teams", href: "#", badge: "Dealer Tool", action: () => setIsAddListingModalOpen(true) },
+    ] : []),
   ];
 
   const STATS = [

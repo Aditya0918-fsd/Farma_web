@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Shield, LogOut, Package, Users, MessageSquare, TrendingUp, CreditCard,
-  CheckCircle, XCircle, Clock, Plus, Trash2, Edit2, Save, X, Tractor, Bell, ExternalLink
+  CheckCircle, XCircle, Clock, Plus, Trash2, Edit2, Save, X, Tractor, Bell, ExternalLink, Video
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import type { MandiRate } from "@/context/AppContext.tsx";
 
-type Tab = "crops" | "dealerListings" | "machinery" | "labour" | "expert" | "mandi" | "kcc" | "labourTypes" | "notifications";
+type Tab = "crops" | "dealerListings" | "machinery" | "labour" | "expert" | "mandi" | "kcc" | "labourTypes" | "notifications" | "pathshala";
 
 export default function AdminDashboard() {
   const {
@@ -25,7 +25,8 @@ export default function AdminDashboard() {
     mandiRates, addMandiRate, updateMandiRate, deleteMandiRate,
     labourTypes, addLabourType, removeLabourType,
     kccApplications, approveKccApplication, rejectKccApplication,
-    toggleKccDemoStatus, isKccIssued, notifications, markNotificationAsRead, deleteNotification
+    toggleKccDemoStatus, isKccIssued, notifications, markNotificationAsRead, deleteNotification,
+    pathshalaVideos, addPathshalaVideo, deletePathshalaVideo
   } = useApp();
 
   const [tab, setTab] = useState<Tab>("crops");
@@ -36,6 +37,12 @@ export default function AdminDashboard() {
   const [assignForm, setAssignForm] = useState<{ [id: string]: { name: string; phone: string; charges: string }[] }>({});
   const [machineryAllotForm, setMachineryAllotForm] = useState<{ [id: string]: string }>({});
 
+  // Pathshala state
+  const [newVideoTitle, setNewVideoTitle] = useState("");
+  const [newVideoUrl, setNewVideoUrl] = useState("");
+  const [newVideoCategory, setNewVideoCategory] = useState("soil");
+  const [newVideoDesc, setNewVideoDesc] = useState("");
+
   // Labour assignment helpers
   const getAssign = (id: string) => assignForm[id] || [{ name: "", phone: "", charges: "" }];
   const setAssign = (id: string, val: { name: string; phone: string; charges: string }[]) =>
@@ -43,6 +50,7 @@ export default function AdminDashboard() {
 
   const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "notifications", label: "Global Activity Log", icon: Bell },
+    { id: "pathshala", label: "Kisan Pathshala", icon: Video },
     { id: "dealerListings", label: "Dealer Listings Approval", icon: Package },
     { id: "crops", label: "Crop Listings", icon: Package },
     { id: "machinery", label: "Machinery Booking", icon: Tractor },
@@ -453,6 +461,125 @@ export default function AdminDashboard() {
                     {a.status === "approved" && <p className="text-xs text-primary mt-2">✓ Issued on {a.issueDate}</p>}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* KISAN PATHSHALA VIDEO MANAGEMENT */}
+          {tab === "pathshala" && (
+            <div>
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Video className="h-5 w-5 text-red-400" /> Kisan Pathshala – Video Content Manager
+              </h2>
+
+              {/* Add New Video Form */}
+              <div className="bg-[#111] border border-white/10 rounded-xl p-4 mb-6 space-y-3">
+                <p className="text-sm font-semibold text-gray-400">Upload New Educational Video</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="md:col-span-2">
+                    <Label className="text-xs text-gray-300 mb-1 block">Video Title (Hindi/English) *</Label>
+                    <Input
+                      value={newVideoTitle}
+                      onChange={e => setNewVideoTitle(e.target.value)}
+                      placeholder="e.g. वैज्ञानिक विधि से गेहूं की खेती | Scientific Wheat Farming"
+                      className="bg-white/5 border-white/10 text-white text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-300 mb-1 block">YouTube Video URL *</Label>
+                    <Input
+                      value={newVideoUrl}
+                      onChange={e => setNewVideoUrl(e.target.value)}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      className="bg-white/5 border-white/10 text-white text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-300 mb-1 block">Category</Label>
+                    <select
+                      value={newVideoCategory}
+                      onChange={e => setNewVideoCategory(e.target.value)}
+                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-xs rounded-xl px-3 py-2.5 outline-none"
+                    >
+                      <option value="soil">Soil & Fertilizer</option>
+                      <option value="water">Water & Irrigation</option>
+                      <option value="pest">Pest & Disease Control</option>
+                      <option value="weather">Seasonal & Weather</option>
+                      <option value="seeds">Seeds & Sowing</option>
+                      <option value="government">Government Schemes</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-xs text-gray-300 mb-1 block">Short Description</Label>
+                    <Input
+                      value={newVideoDesc}
+                      onChange={e => setNewVideoDesc(e.target.value)}
+                      placeholder="Brief description of what farmers will learn..."
+                      className="bg-white/5 border-white/10 text-white text-xs"
+                    />
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (!newVideoTitle.trim() || !newVideoUrl.trim()) {
+                      toast.error("Title and YouTube URL are required."); return;
+                    }
+                    if (!newVideoUrl.includes("youtube.com") && !newVideoUrl.includes("youtu.be")) {
+                      toast.error("Please enter a valid YouTube URL."); return;
+                    }
+                    addPathshalaVideo({ title: newVideoTitle, youtubeUrl: newVideoUrl, category: newVideoCategory, description: newVideoDesc });
+                    setNewVideoTitle(""); setNewVideoUrl(""); setNewVideoDesc(""); setNewVideoCategory("soil");
+                  }}
+                  className="bg-red-500 hover:bg-red-400 text-white font-bold text-xs"
+                >
+                  <Video className="h-3.5 w-3.5 mr-1.5" /> Upload Video to Pathshala
+                </Button>
+              </div>
+
+              {/* Existing Videos List */}
+              <div className="space-y-3">
+                {pathshalaVideos.length === 0 && <p className="text-gray-500 text-sm">No videos uploaded yet.</p>}
+                {pathshalaVideos.map(v => {
+                  const ytId = v.youtubeUrl.split("v=")[1]?.split("&")[0] || v.youtubeUrl.split("/").pop();
+                  const catColor: Record<string, string> = {
+                    soil: "text-amber-400 bg-amber-500/10 border-amber-500/30",
+                    water: "text-blue-400 bg-blue-500/10 border-blue-500/30",
+                    pest: "text-red-400 bg-red-500/10 border-red-500/30",
+                    weather: "text-purple-400 bg-purple-500/10 border-purple-500/30",
+                    seeds: "text-primary bg-primary/10 border-primary/30",
+                    government: "text-pink-400 bg-pink-500/10 border-pink-500/30",
+                  };
+                  return (
+                    <div key={v.id} className="bg-[#111] border border-white/10 rounded-xl p-4 flex gap-4 items-start">
+                      {ytId && (
+                        <img
+                          src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`}
+                          alt={v.title}
+                          className="w-28 h-16 object-cover rounded-lg border border-white/10 shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="text-sm font-bold text-white truncate">{v.title}</h3>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border capitalize ${catColor[v.category] || "text-gray-400"}`}>{v.category}</span>
+                        </div>
+                        {v.description && <p className="text-xs text-gray-400 mb-1">{v.description}</p>}
+                        <a href={v.youtubeUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-red-400 hover:underline flex items-center gap-1">
+                          <Video className="h-3 w-3" /> {v.youtubeUrl.substring(0, 55)}...
+                        </a>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => deletePathshalaVideo(v.id)}
+                        className="text-red-400 border border-red-500/20 h-8 shrink-0"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { type Language, TRANSLATIONS, type Translations } from "@/lib/translations.ts";
+import { toast } from "sonner";
 
 export interface CropListing {
   id: string;
@@ -69,6 +70,9 @@ export interface KccApplication {
   status: "pending" | "approved" | "rejected";
   cardNumber?: string;
   issueDate?: string;
+  cardTier?: "nex" | "prime";
+  paymentStatus?: "pending" | "paid";
+  paymentAmount?: number;
   createdAt: string;
 }
 
@@ -137,6 +141,15 @@ export interface DealerListing {
   location?: string;
   workerCount?: number;
   status: "pending" | "approved" | "rejected";
+  createdAt: string;
+}
+
+export interface PathshalaVideo {
+  id: string;
+  title: string;
+  youtubeUrl: string;
+  category: string;
+  description?: string;
   createdAt: string;
 }
 
@@ -281,6 +294,12 @@ interface AppContextType {
   addDealerListing: (item: Omit<DealerListing, "id" | "status" | "createdAt">) => void;
   approveDealerListing: (id: string) => void;
   rejectDealerListing: (id: string) => void;
+  updateDealerListing: (id: string, updated: Partial<DealerListing>) => void;
+
+  // Kisan Pathshala Videos
+  pathshalaVideos: PathshalaVideo[];
+  addPathshalaVideo: (video: Omit<PathshalaVideo, "id" | "createdAt">) => void;
+  deletePathshalaVideo: (id: string) => void;
 
   // New Farmer Registration by Dealer (Point 1.iii)
   registeredFarmers: RegisteredFarmer[];
@@ -1020,6 +1039,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const updateDealerListing = (id: string, updated: Partial<DealerListing>) => {
+    setDealerListings((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          return {
+            ...item,
+            ...updated,
+            status: updated.status || "pending"
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  // Kisan Pathshala Videos State & Actions
+  const [pathshalaVideos, setPathshalaVideos] = useState<PathshalaVideo[]>(() => {
+    const saved = localStorage.getItem("krivexa_pathshala_videos");
+    return saved ? JSON.parse(saved) : [
+      {
+        id: "vid-1",
+        title: "वैज्ञानिक विधि से गेहूं की खेती | Scientific Wheat Farming Techniques",
+        youtubeUrl: "https://www.youtube.com/watch?v=co3_pS74L-Q",
+        category: "soil",
+        description: "इस वीडियो में देखें गेहूं की बुवाई से लेकर कटाई तक की पूरी जानकारी और वैज्ञानिक तरीके।",
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: "vid-2",
+        title: "ड्रिप सिंचाई प्रणाली कैसे काम करती है? | Working of Drip Irrigation System",
+        youtubeUrl: "https://www.youtube.com/watch?v=FmYj08m52_I",
+        category: "water",
+        description: "खेतों में ड्रिप सिंचाई (टपक सिंचाई) लगाने के फायदे और उसकी पूरी कार्यप्रणाली।",
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: "vid-3",
+        title: "जैविक खाद बनाने की सबसे आसान विधि | How to make Organic Compost at home",
+        youtubeUrl: "https://www.youtube.com/watch?v=P84nI0TpxmU",
+        category: "soil",
+        description: "केंचुआ खाद (Vermicompost) और अन्य जैविक खाद बनाने की विधि तथा खेतों में इसके उपयोग।",
+        createdAt: new Date().toISOString()
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("krivexa_pathshala_videos", JSON.stringify(pathshalaVideos));
+  }, [pathshalaVideos]);
+
+  const addPathshalaVideo = (video: Omit<PathshalaVideo, "id" | "createdAt">) => {
+    const newVideo: PathshalaVideo = {
+      ...video,
+      id: `vid-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    };
+    setPathshalaVideos((prev) => [newVideo, ...prev]);
+    toast.success("New Pathshala Video uploaded successfully!");
+  };
+
+  const deletePathshalaVideo = (id: string) => {
+    setPathshalaVideos((prev) => prev.filter((v) => v.id !== id));
+    toast.success("Pathshala Video removed successfully.");
+  };
+
   // Dealer Registered Farmers State (Point 1.iii)
   const [registeredFarmers, setRegisteredFarmers] = useState<RegisteredFarmer[]>(() => {
     const saved = localStorage.getItem("krivexa_registered_farmers");
@@ -1364,6 +1448,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addDealerListing,
         approveDealerListing,
         rejectDealerListing,
+        updateDealerListing,
 
         registeredFarmers,
         registerFarmerByDealer,
@@ -1372,6 +1457,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getFarmerProfileByDetails,
 
         updateOrderStatus,
+
+        pathshalaVideos,
+        addPathshalaVideo,
+        deletePathshalaVideo,
       }}
     >
       {children}
