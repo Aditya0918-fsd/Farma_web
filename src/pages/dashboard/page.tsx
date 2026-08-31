@@ -23,6 +23,7 @@ export default function DashboardPage() {
     notifications,
     markNotificationAsRead,
     markAllNotificationsAsRead,
+    isKccIssued,
     setIsKccAppModalOpen,
     cropListings,
     machineryBookings,
@@ -37,6 +38,8 @@ export default function DashboardPage() {
     orders: contextOrders,
     updateOrderStatus,
     updateDealerListing,
+    walletBalance,
+    walletTransactions,
   } = useApp();
 
   const location = useLocation();
@@ -128,12 +131,14 @@ export default function DashboardPage() {
   const [editListUnit, setEditListUnit] = useState("");
   const [editListLocation, setEditListLocation] = useState("");
 
+  const hasActivity = contextOrders.length > 0 || walletTransactions.length > 0;
+
   const DEALER_ANALYTICS: Record<string, { income: string; orders: number; sales: string; growth: string }> = {
-    "1day": { income: "₹18,450", orders: 14, sales: "₹42,800", growth: "+4.2% vs yesterday" },
-    "weekly": { income: "₹1,24,500", orders: 86, sales: "₹3,10,000", growth: "+8.5% vs last week" },
-    "monthly": { income: "₹5,42,000", orders: 342, sales: "₹14,20,000", growth: "+14.2% vs last month" },
-    "quarterly": { income: "₹16,80,000", orders: 1050, sales: "₹45,60,000", growth: "+18.1% vs Q1" },
-    "yearly": { income: "₹68,50,000", orders: 4200, sales: "₹1,85,00,000", growth: "+22.4% YoY" },
+    "1day": { income: hasActivity ? "₹18,450" : "₹0.00", orders: hasActivity ? 14 : 0, sales: hasActivity ? "₹42,800" : "₹0.00", growth: hasActivity ? "+4.2% vs yesterday" : "No sales recorded" },
+    "weekly": { income: hasActivity ? "₹1,24,500" : "₹0.00", orders: hasActivity ? 86 : 0, sales: hasActivity ? "₹3,10,000" : "₹0.00", growth: hasActivity ? "+8.5% vs last week" : "No sales recorded" },
+    "monthly": { income: hasActivity ? "₹5,42,000" : "₹0.00", orders: hasActivity ? 342 : 0, sales: hasActivity ? "₹14,20,000" : "₹0.00", growth: hasActivity ? "+14.2% vs last month" : "No sales recorded" },
+    "quarterly": { income: hasActivity ? "₹16,80,000" : "₹0.00", orders: hasActivity ? 1050 : 0, sales: hasActivity ? "₹45,60,000" : "₹0.00", growth: hasActivity ? "+18.1% vs Q1" : "No sales recorded" },
+    "yearly": { income: hasActivity ? "₹68,50,000" : "₹0.00", orders: hasActivity ? 4200 : 0, sales: hasActivity ? "₹1,85,00,000" : "₹0.00", growth: hasActivity ? "+22.4% YoY" : "No sales recorded" },
   };
 
   const unreadNotifCount = notifications.filter((n) => !n.read).length;
@@ -162,108 +167,41 @@ export default function DashboardPage() {
   ];
 
   // Listed Crops Data
-  const defaultListedCrops = [
-    {
-      id: "crop-demo-1",
-      cropName: "Sharbati Wheat",
-      weight: "50 Quintal",
-      price: 2275,
-      district: "Patna",
-      city: "Danapur",
-      sellerName: user?.name || "Ram Das",
-      phone: user?.phone || "8906554583",
-      status: "approved",
-      image: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=500&q=80",
-      createdAt: "2026-08-20T10:30:00.000Z",
-    },
-    {
-      id: "crop-demo-2",
-      cropName: "Basmati Paddy",
-      weight: "35 Quintal",
-      price: 1860,
-      district: "Nalanda",
-      city: "Rajgir",
-      sellerName: user?.name || "Ram Das",
-      phone: user?.phone || "8906554583",
-      status: "growing",
-      image: "https://images.unsplash.com/photo-1536054993300-0b00f01ee72a?w=500&q=80",
-      createdAt: "2026-08-18T14:15:00.000Z",
-    },
-  ];
+  const allUserCrops = cropListings;
 
-  const allUserCrops = [...cropListings, ...defaultListedCrops];
-
-  // Income Breakdown Transactions List
-  const INCOME_TRANSACTIONS = [
-    { id: "TX-901", method: "kcc", title: "Farmer KCC POS Billing", customer: "Ram Das", amount: "₹25,000", date: "Today, 11:30 AM", status: "Completed" },
-    { id: "TX-902", method: "kkw", title: "Fertilizer Order #ORD-1256", customer: "Suresh Kumar", amount: "₹14,500", date: "Today, 10:15 AM", status: "Completed" },
-    { id: "TX-903", method: "upi", title: "Hybrid Wheat Seeds Purchase", customer: "Anita Devi", amount: "₹8,200", date: "Yesterday, 04:45 PM", status: "Completed" },
-    { id: "TX-904", method: "cod", title: "Bio Compost 25kg Delivery", customer: "Mahesh Singh", amount: "₹3,400", date: "Yesterday, 02:10 PM", status: "Delivered & Paid" },
-    { id: "TX-905", method: "kcc", title: "Pesticides Bulk Order POS", customer: "Rajesh Sharma", amount: "₹18,900", date: "24 Aug 2026", status: "Completed" },
-  ];
+  // Income Breakdown Transactions List (generated dynamically from real orders)
+  const INCOME_TRANSACTIONS = contextOrders.map(o => ({
+    id: o.id,
+    method: o.paymentMethod.toLowerCase(),
+    title: `Order #${o.id}`,
+    customer: o.userName,
+    amount: `₹${o.totalAmount}`,
+    date: new Date(o.createdAt).toLocaleDateString("en-IN"),
+    status: o.status,
+  }));
 
   const filteredIncomeTx = incomePaymentFilter === "all"
     ? INCOME_TRANSACTIONS
     : INCOME_TRANSACTIONS.filter(t => t.method === incomePaymentFilter);
 
-  // All Orders & Bookings History Data
-  const ALL_ORDERS = [
-    {
-      id: "ORD-1256",
-      type: "inputs",
-      categoryName: "Input Purchase",
-      title: "NPK 19:19:19 Fertilizer (50kg Bag)",
-      vendor: "Krivexa Agro Supplies",
-      date: "12 May, 2026",
-      amount: "₹1,450.00",
-      status: "Delivered",
-      statusBadge: "bg-primary/20 text-primary border-primary/30",
-      icon: ShoppingCart,
-      details: "Delivered to Rajpur Farm. Payment mode: Kisan Wallet.",
-      paymentMethod: "KKW Wallet",
-      customerName: "Ram Das",
-      customerPhone: "8906554583",
-      address: "Rajpur, Varanasi",
-    },
-    {
-      id: "TRAC-256",
-      type: "machinery",
-      categoryName: "Machinery Booking",
-      title: "Mahindra 45HP Tractor + Rotavator",
-      vendor: "Varanasi Machinery Hub",
-      date: "11 May, 2026",
-      amount: "₹2,400.00 (4 Hours)",
-      status: "Confirmed",
-      statusBadge: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-      icon: Tractor,
-      details: "Operator: Rajesh Kumar. Scheduled for 28 Aug 2026, 08:00 AM.",
-      paymentMethod: "COD",
-      customerName: "Suresh Patel",
-      customerPhone: "9876543210",
-      address: "Danapur, Patna",
-    },
-  ];
-
-  const fullOrdersList = [
-    ...contextOrders.map(o => ({
-      id: o.id,
-      type: "inputs",
-      categoryName: "Product Purchase",
-      title: o.items.map(i => `${i.name} (x${i.quantity})`).join(", "),
-      vendor: o.assignedDealerName || user?.name || "Patna Agro Dealer",
-      date: new Date(o.createdAt).toLocaleDateString("en-IN"),
-      amount: `₹${o.totalAmount}`,
-      status: o.status,
-      statusBadge: o.status === "Delivered" ? "bg-primary/20 text-primary border-primary/30" : o.status === "Dispatched" ? "bg-amber-500/20 text-amber-400 border-amber-500/30" : "bg-blue-500/20 text-blue-400 border-blue-500/30",
-      icon: ShoppingCart,
-      details: `Payment method: ${o.paymentMethod.toUpperCase()}. Delivery: ${o.deliveryAddress}`,
-      paymentMethod: o.paymentMethod.toUpperCase(),
-      customerName: o.userName,
-      customerPhone: "Registered Customer",
-      address: o.deliveryAddress,
-    })),
-    ...ALL_ORDERS
-  ];
+  // All Orders & Bookings History Data (Real registered orders)
+  const fullOrdersList = contextOrders.map(o => ({
+    id: o.id,
+    type: "inputs",
+    categoryName: "Product Purchase",
+    title: o.items.map(i => `${i.name} (x${i.quantity})`).join(", "),
+    vendor: o.assignedDealerName || user?.name || "Agri Dealer",
+    date: new Date(o.createdAt).toLocaleDateString("en-IN"),
+    amount: `₹${o.totalAmount}`,
+    status: o.status,
+    statusBadge: o.status === "Delivered" ? "bg-primary/20 text-primary border-primary/30" : o.status === "Dispatched" ? "bg-amber-500/20 text-amber-400 border-amber-500/30" : "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    icon: ShoppingCart,
+    details: `Payment method: ${o.paymentMethod.toUpperCase()}. Delivery: ${o.deliveryAddress}`,
+    paymentMethod: o.paymentMethod.toUpperCase(),
+    customerName: o.userName,
+    customerPhone: "Registered Customer",
+    address: o.deliveryAddress,
+  }));
 
   const filteredOrders = ordersFilter === "all"
     ? fullOrdersList
@@ -739,6 +677,36 @@ export default function DashboardPage() {
         {/* DASHBOARD CONTENT BODY */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
           
+          {/* PROMINENT KCC APPLICATION BANNER (Visible when KCC is not verified) */}
+          {!isKccIssued && (
+            <div className="bg-linear-to-r from-amber-950/90 via-amber-900/50 to-black border-2 border-amber-500/60 rounded-2xl p-5 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400">
+                  <CreditCard className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 mb-1">
+                    <Lock className="h-3 w-3 text-amber-400" /> Account Verification &amp; Feature Lock Active
+                  </div>
+                  <h3 className="text-lg font-black text-amber-200">
+                    Apply for Kisan Credit Card (KCC) Now
+                  </h3>
+                  <p className="text-xs text-gray-300 max-w-xl">
+                    {user?.role === "dealer"
+                      ? "Platform buying, crop selling & bookings are currently locked. Apply for KCC to unlock all dealer transactional features. (Customer Service & Product Listings remain accessible)."
+                      : "Buying inputs, selling harvest, labour & machinery bookings are locked. Apply for KCC to unlock 100% platform access and get up to ₹3,00,000 credit limit."}
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setIsKccAppModalOpen(true)}
+                className="bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs py-3 px-6 rounded-xl shrink-0 cursor-pointer shadow-lg animate-pulse border border-amber-300"
+              >
+                <CreditCard className="h-4 w-4 mr-1.5 text-black" /> Apply for KCC Now →
+              </Button>
+            </div>
+          )}
+          
           {/* === DEALER SPECIAL TOP DASHBOARD ANALYTICS BAR === */}
           {user?.role === "dealer" && (
             <div className="bg-linear-to-r from-[#121212] via-[#1a251a] to-[#121212] border border-primary/30 rounded-2xl p-5 shadow-xl">
@@ -958,7 +926,9 @@ export default function DashboardPage() {
                     <Wallet className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <div className="text-3xl font-black text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>₹4,250.00</div>
+                    <div className="text-3xl font-black text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                      ₹{walletBalance.toLocaleString()}.00
+                    </div>
                     <div className="text-[11px] text-gray-400">Krivexa Kisan Wallet</div>
                   </div>
                 </div>

@@ -26,7 +26,7 @@ const TESTIMONIALS = [
 
 export default function Index() {
   const {
-    t, user, setIsKccAppModalOpen, hasAppliedKcc,
+    t, user, isKccIssued, checkKccPermission, setIsKccAppModalOpen, hasAppliedKcc,
     dealerApplyFarmerKcc, chargeFarmerCard, addDealerListing,
     registerFarmerByDealer, checkKccStatusByPhoneAadhaar, getFarmerProfileByDetails
   } = useApp();
@@ -534,27 +534,29 @@ export default function Index() {
               <p className="text-gray-300 text-lg md:text-xl mb-8 leading-relaxed max-w-2xl">{t.hero.desc}</p>
               <div className="flex flex-wrap gap-4 mb-12">
                 {user ? (
-                  <Link to="/dashboard">
-                    <Button size="lg" className="bg-primary text-black font-bold text-base px-8 hover:bg-primary/90 rounded-full shadow-lg hover:shadow-primary/20">
-                      Go to Dashboard <ArrowRight className="ml-2 h-5 w-5" />
-                    </Button>
-                  </Link>
+                  <>
+                    <Link to="/dashboard">
+                      <Button size="lg" className="bg-primary text-black font-bold text-base px-8 hover:bg-primary/90 rounded-full shadow-lg hover:shadow-primary/20">
+                        Go to Dashboard <ArrowRight className="ml-2 h-5 w-5" />
+                      </Button>
+                    </Link>
+                    {!isKccIssued && (
+                      <Button
+                        size="lg"
+                        onClick={() => setIsKccAppModalOpen(true)}
+                        className="bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-base px-8 rounded-full border-2 border-amber-300 shadow-xl shadow-amber-500/30 animate-pulse cursor-pointer"
+                      >
+                        <CreditCard className="mr-2 h-5 w-5 text-black" />
+                        Apply for KCC Now →
+                      </Button>
+                    )}
+                  </>
                 ) : (
                   <Link to="/register">
                     <Button size="lg" className="bg-primary text-black font-bold text-base px-8 hover:bg-primary/90 rounded-full">
                       {t.hero.getStarted} <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
                   </Link>
-                )}
-                {!hasAppliedKcc && (
-                  <Button
-                    size="lg"
-                    onClick={() => setIsKccAppModalOpen(true)}
-                    className="bg-amber-500 hover:bg-amber-400 text-black font-bold text-base px-8 rounded-full border-0"
-                  >
-                    <CreditCard className="mr-2 h-5 w-5" />
-                    {t.hero.applyKcc}
-                  </Button>
                 )}
               </div>
               <div className="flex flex-wrap gap-8">
@@ -573,6 +575,35 @@ export default function Index() {
       {/* Our Services — icon grid */}
       <section className="py-16 bg-[#0d0d0d]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          
+          {/* PROMINENT KCC APPLICATION AD BANNER */}
+          {user && !isKccIssued && (
+            <div className="mb-10 bg-linear-to-r from-amber-950/90 via-amber-900/60 to-black border-2 border-amber-500/70 rounded-3xl p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-5">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400">
+                  <CreditCard className="h-8 w-8" />
+                </div>
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 mb-1.5">
+                    <Lock className="h-3.5 w-3.5 text-amber-400" /> Account Verification &amp; Feature Lock Active
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-black text-amber-200">
+                    Apply for Kisan Credit Card (KCC) Now
+                  </h3>
+                  <p className="text-xs md:text-sm text-gray-300 max-w-2xl mt-1 leading-relaxed">
+                    Buying inputs, selling harvest, labour &amp; machinery bookings are currently locked until KCC verification. Apply now to get your verified card number and unlock 100% platform access!
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setIsKccAppModalOpen(true)}
+                className="bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-sm py-3.5 px-8 rounded-2xl shrink-0 cursor-pointer shadow-xl animate-pulse border border-amber-300"
+              >
+                <CreditCard className="h-4 w-4 mr-2 text-black" /> Apply for KCC Now →
+              </Button>
+            </div>
+          )}
+
           <div className="text-center mb-10">
             <h2 className="text-4xl md:text-5xl font-black mb-2" style={{ fontFamily: "Rajdhani, sans-serif" }}>
               {t.services.title} <span className="text-primary">{t.services.titleHighlight}</span>
@@ -591,9 +622,14 @@ export default function Index() {
                 {s.action ? (
                   <div
                     onClick={s.action}
-                    className="flex flex-col items-center gap-2 p-3.5 rounded-2xl bg-[#111] border border-white/10 hover:border-primary/50 hover:bg-primary/5 transition-all group cursor-pointer hover:-translate-y-1 h-full justify-between"
+                    className="relative flex flex-col items-center gap-2 p-3.5 rounded-2xl bg-[#111] border border-white/10 hover:border-primary/50 hover:bg-primary/5 transition-all group cursor-pointer hover:-translate-y-1 h-full justify-between overflow-hidden"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-colors text-primary">
+                    {!isKccIssued && (
+                      <span className="absolute top-2 right-2 flex items-center gap-1 bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-xs">
+                        KCC Gate
+                      </span>
+                    )}
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-colors text-primary mt-1">
                       <s.icon className="h-6 w-6" />
                     </div>
                     <div className="text-center">
@@ -604,9 +640,14 @@ export default function Index() {
                 ) : (
                   <Link
                     to={s.href}
-                    className="flex flex-col items-center gap-2 p-3.5 rounded-2xl bg-[#111] border border-white/10 hover:border-primary/50 hover:bg-primary/5 transition-all group cursor-pointer hover:-translate-y-1 h-full justify-between"
+                    className="relative flex flex-col items-center gap-2 p-3.5 rounded-2xl bg-[#111] border border-white/10 hover:border-primary/50 hover:bg-primary/5 transition-all group cursor-pointer hover:-translate-y-1 h-full justify-between overflow-hidden"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-colors text-primary">
+                    {!isKccIssued && (
+                      <span className="absolute top-2 right-2 flex items-center gap-1 bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-xs">
+                        KCC Gate
+                      </span>
+                    )}
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-colors text-primary mt-1">
                       <s.icon className="h-6 w-6" />
                     </div>
                     <div className="text-center">

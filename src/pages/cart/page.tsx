@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 export default function CartPage() {
   const navigate = useNavigate();
-  const { cart, removeFromCart, updateCartQuantity, clearCart, checkoutCart, orders, user, kccDetails } = useApp();
+  const { cart, removeFromCart, updateCartQuantity, clearCart, checkoutCart, orders, user, kccDetails, checkKccPermission, isKccIssued, setIsKccAppModalOpen } = useApp();
 
   const [activeTab, setActiveTab] = useState<"cart" | "orders">("cart");
   const [paymentMethod, setPaymentMethod] = useState<"kcc" | "upi" | "cod" | "wallet">("kcc");
@@ -29,6 +29,7 @@ export default function CartPage() {
   const grandTotal = subtotal + deliveryFee;
 
   const handleCheckout = () => {
+    if (!checkKccPermission("checkout and place orders")) return;
     if (cart.length === 0) {
       toast.error("Your cart is empty!");
       return;
@@ -102,6 +103,31 @@ export default function CartPage() {
 
         {/* Content Container */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          
+          {/* KCC APPLICATION BANNER */}
+          {!isKccIssued && (
+            <div className="mb-6 bg-linear-to-r from-amber-950/90 via-amber-900/60 to-black border-2 border-amber-500/70 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400 font-bold">
+                  🔒
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-amber-200">
+                    Cart Checkout Gated — Apply for KCC Now
+                  </h3>
+                  <p className="text-xs text-gray-300 max-w-2xl">
+                    Kisan Credit Card (KCC) account verification is required to place order and checkout. Apply now to issue your card!
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setIsKccAppModalOpen(true)}
+                className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs py-2.5 px-6 rounded-xl shrink-0 shadow-md animate-pulse cursor-pointer border border-amber-300"
+              >
+                Apply for KCC Now →
+              </Button>
+            </div>
+          )}
           
           {/* ORDER SUCCESS OVERLAY / MESSAGE */}
           {lastCompletedOrder && (
@@ -216,7 +242,7 @@ export default function CartPage() {
                             >
                               <Minus className="h-3.5 w-3.5" />
                             </button>
-                            <span className="px-3 text-xs font-bold text-white min-w-[2rem] text-center">
+                            <span className="px-3 text-xs font-bold text-white min-w-8 text-center">
                               {item.quantity}
                             </span>
                             <button
@@ -260,7 +286,7 @@ export default function CartPage() {
 
                     {/* Delivery Address Input */}
                     <div>
-                      <label className="text-xs font-semibold text-gray-300 block mb-1.5 flex items-center justify-between">
+                      <label className="text-xs font-semibold text-gray-300 mb-1.5 flex items-center justify-between">
                         <span>Delivery Address</span>
                         <span className="text-[10px] text-primary">Required</span>
                       </label>

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils.ts";
 import { useApp } from "@/context/AppContext.tsx";
 import type { Language } from "@/lib/translations.ts";
 import { toast } from "sonner";
+import KccRequiredBanner from "@/components/KccRequiredBanner.tsx";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -20,6 +21,7 @@ export default function Navbar() {
     language, 
     setLanguage, 
     t, 
+    isKccIssued,
     setIsKccAppModalOpen,
     hasAppliedKcc,
     user, 
@@ -29,6 +31,8 @@ export default function Navbar() {
     markNotificationAsRead,
     deleteNotification,
     cart,
+    mongoConnected,
+    mongoDatabase,
   } = useApp();
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
@@ -74,7 +78,8 @@ export default function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/10">
+    <>
+      <header className="sticky top-0 z-50 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           
@@ -140,14 +145,13 @@ export default function Navbar() {
 
           {/* Right Section Controls */}
           <div className="hidden lg:flex items-center gap-3">
-            
-            {/* KCC Fast Application Button (Hidden once applied) */}
-            {!hasAppliedKcc && (
+            {/* KCC Fast Application Button — shown until KCC is approved */}
+            {user && !isKccIssued && (
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => setIsKccAppModalOpen(true)}
-                className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary text-xs font-bold"
+                className="border-amber-500/60 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 hover:text-amber-300 text-xs font-bold animate-pulse cursor-pointer"
               >
                 <CreditCard className="h-3.5 w-3.5 mr-1" /> KCC Apply
               </Button>
@@ -296,6 +300,17 @@ export default function Navbar() {
                   )}
                 </div>
 
+                {/* Apply for KCC Now Button (Visible in header when logged in and KCC not issued) */}
+                {!isKccIssued && (
+                  <button
+                    onClick={() => setIsKccAppModalOpen(true)}
+                    className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-linear-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black font-extrabold text-xs shadow-lg animate-pulse border border-amber-300/60 cursor-pointer"
+                  >
+                    <CreditCard className="h-3.5 w-3.5 text-black" />
+                    <span>Apply for KCC Now</span>
+                  </button>
+                )}
+
                 {/* User Profile Menu */}
                 <div className="relative">
                   <button
@@ -332,7 +347,7 @@ export default function Navbar() {
                       </div>
 
                       {/* User Links */}
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <Link
                           to="/dashboard"
                           onClick={() => setShowUserMenu(false)}
@@ -340,6 +355,17 @@ export default function Navbar() {
                         >
                           <LayoutDashboard className="h-4 w-4 text-black" /> User Dashboard
                         </Link>
+                        {!isKccIssued && (
+                          <button
+                            onClick={() => {
+                              setShowUserMenu(false);
+                              setIsKccAppModalOpen(true);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-black text-black bg-amber-400 hover:bg-amber-300 transition-colors shadow-md cursor-pointer border border-amber-300"
+                          >
+                            <CreditCard className="h-4 w-4 text-black" /> Apply for KCC Now →
+                          </button>
+                        )}
                         <Link
                           to="/profile"
                           onClick={() => setShowUserMenu(false)}
@@ -649,5 +675,7 @@ export default function Navbar() {
         )}
       </div>
     </header>
+    <KccRequiredBanner />
+    </>
   );
 }

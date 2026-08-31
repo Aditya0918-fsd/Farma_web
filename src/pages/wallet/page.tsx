@@ -11,19 +11,22 @@ import { useApp } from "@/context/AppContext.tsx";
 import FormPreviewModal from "@/components/FormPreviewModal.tsx";
 import { generateFormPdf } from "@/lib/pdfGenerator.ts";
 
-const TRANSACTIONS = [
-  { title: "Pesticides Purchase", type: "debit", amount: 850, date: "12 May 2024", category: "Purchase", id: "#TXN001" },
-  { title: "Crop Sale - Wheat", type: "credit", amount: 12500, date: "10 May 2024", category: "Sale", id: "#TXN002" },
-  { title: "Tractor Booking", type: "debit", amount: 2400, date: "9 May 2024", category: "Booking", id: "#TXN003" },
-  { title: "Wallet Top-up", type: "credit", amount: 5000, date: "8 May 2024", category: "Top-up", id: "#TXN004" },
-  { title: "Expert Consultation", type: "debit", amount: 200, date: "7 May 2024", category: "Service", id: "#TXN005" },
-  { title: "Soil Test Booking", type: "debit", amount: 599, date: "5 May 2024", category: "Service", id: "#TXN006" },
-  { title: "Seeds Purchase", type: "debit", amount: 1350, date: "3 May 2024", category: "Purchase", id: "#TXN007" },
-  { title: "Crop Sale - Paddy", type: "credit", amount: 8200, date: "1 May 2024", category: "Sale", id: "#TXN008" },
-];
-
 export default function WalletPage() {
-  const { t, user, kccApplicationStatus, kccDetails, hasAppliedKcc, dealerApplyFarmerKcc, checkFarmerCardBalance, chargeFarmerCard, addNotification } = useApp();
+  const {
+    t,
+    user,
+    isKccIssued,
+    kccApplicationStatus,
+    kccDetails,
+    hasAppliedKcc,
+    setIsKccAppModalOpen,
+    dealerApplyFarmerKcc,
+    checkFarmerCardBalance,
+    chargeFarmerCard,
+    addNotification,
+    walletTransactions,
+    walletBalance,
+  } = useApp();
   const [showBalance, setShowBalance] = useState(true);
   const [addAmount, setAddAmount] = useState("");
 
@@ -240,12 +243,11 @@ export default function WalletPage() {
     }, 1000);
   };
 
-  // KCC card number logic
+  // KCC card number & wallet balances logic
   const isKccApproved = kccApplicationStatus === "approved";
-  const walletBalance = 4250;
   const kccCreditBalance = isKccApproved && kccDetails ? 25000 : 0;
-  const totalIn = TRANSACTIONS.filter((t) => t.type === "credit").reduce((s, t) => s + t.amount, 0);
-  const totalOut = TRANSACTIONS.filter((t) => t.type === "debit").reduce((s, t) => s + t.amount, 0);
+  const totalIn = walletTransactions.filter((t) => t.type === "credit").reduce((s, t) => s + t.amount, 0);
+  const totalOut = walletTransactions.filter((t) => t.type === "debit").reduce((s, t) => s + t.amount, 0);
 
   const kccCardNumber = isKccApproved && kccDetails?.cardNumber
     ? kccDetails.cardNumber
@@ -269,7 +271,35 @@ export default function WalletPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+
+        {/* PROMINENT KCC APPLY CTA BANNER CARD (Visible when user has no active KCC) */}
+        {!isKccIssued && (
+          <div className="bg-linear-to-r from-amber-950/80 via-amber-900/40 to-black border-2 border-amber-500/50 rounded-2xl p-5 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400">
+                <CreditCard className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 mb-1">
+                  <AlertCircle className="h-3 w-3" /> Mandatory Account Verification
+                </div>
+                <h3 className="text-lg font-black text-amber-200">
+                  Apply for Kisan Credit Card (KCC) Now
+                </h3>
+                <p className="text-xs text-gray-300 max-w-xl">
+                  Get up to ₹3,00,000 credit limit &amp; unlock all buying, crop selling, machinery &amp; labour booking features across the Bihar platform.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setIsKccAppModalOpen(true)}
+              className="bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs py-3 px-6 rounded-xl shrink-0 cursor-pointer shadow-lg animate-pulse border border-amber-300"
+            >
+              <CreditCard className="h-4 w-4 mr-1.5 text-black" /> Apply for KCC Now →
+            </Button>
+          </div>
+        )}
 
         {/* === DUAL WALLET: DEPOSIT BALANCE + CREDIT CARD BALANCE === */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -333,21 +363,19 @@ export default function WalletPage() {
                   style={{ fontFamily: "Rajdhani, monospace", fontSize: "clamp(0.65rem, 2.2vw, 0.85rem)", textShadow: "0 2px 8px rgba(0,0,0,0.9)" }}
                 >
                   {hasAppliedKcc
-                    ? (isKccApproved ? kccCardNumber : "Verification in Progress...")
+                    ? (isKccApproved ? kccCardNumber : "Will be generated after verification")
                     : "Apply KCC to Activate Card"}
                 </div>
               </div>
-              {/* Holder name overlay */}
-              {hasAppliedKcc && (
-                <div className="absolute left-[5.5%] top-[72%] w-[88%]">
-                  <div
-                    className="text-[#f5d77f] font-black uppercase tracking-[0.12em] leading-none drop-shadow-md truncate"
-                    style={{ fontFamily: "Rajdhani, sans-serif", fontSize: "clamp(0.55rem, 1.8vw, 0.75rem)", textShadow: "0 2px 6px rgba(0,0,0,0.9)" }}
-                  >
-                    {kccHolderName}
-                  </div>
+              {/* Holder name overlay — always visible */}
+              <div className="absolute left-[5.5%] top-[72%] w-[88%]">
+                <div
+                  className="text-[#f5d77f] font-black uppercase tracking-[0.12em] leading-none drop-shadow-md truncate"
+                  style={{ fontFamily: "Rajdhani, sans-serif", fontSize: "clamp(0.55rem, 1.8vw, 0.75rem)", textShadow: "0 2px 6px rgba(0,0,0,0.9)" }}
+                >
+                  {kccHolderName}
                 </div>
-              )}
+              </div>
               {/* KCC info footer */}
               <div className="px-4 py-3 border-t border-amber-500/20 bg-black/40 flex items-center justify-between">
                 <div>
@@ -371,23 +399,31 @@ export default function WalletPage() {
               </button>
             </div>
             <div className="divide-y divide-white/5">
-              {TRANSACTIONS.map((t) => (
-                <div key={t.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/3 transition-colors">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${t.type === "credit" ? "bg-primary/20" : "bg-red-500/20"}`}>
-                    {t.type === "credit" ? <ArrowUpRight className="h-4 w-4 text-primary" /> : <ArrowDownRight className="h-4 w-4 text-red-400" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold">{t.title}</div>
-                    <div className="text-xs text-gray-500">{t.date} • {t.id}</div>
-                  </div>
-                  <Badge className={`text-[10px] ${t.type === "credit" ? "bg-primary/20 text-primary border-primary/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}>
-                    {t.category}
-                  </Badge>
-                  <div className={`text-sm font-bold shrink-0 ${t.type === "credit" ? "text-primary" : "text-red-400"}`}>
-                    {t.type === "credit" ? "+" : "-"}₹{t.amount.toLocaleString()}
-                  </div>
+              {walletTransactions.length === 0 ? (
+                <div className="p-8 text-center text-gray-500 text-sm">
+                  <Receipt className="h-10 w-10 text-gray-600 mx-auto mb-2 opacity-50" />
+                  <p className="font-semibold text-gray-400">No transactions recorded yet</p>
+                  <p className="text-xs text-gray-500 mt-1">Your wallet activity and payments will appear here automatically.</p>
                 </div>
-              ))}
+              ) : (
+                walletTransactions.map((t) => (
+                  <div key={t.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/3 transition-colors">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${t.type === "credit" ? "bg-primary/20" : "bg-red-500/20"}`}>
+                      {t.type === "credit" ? <ArrowUpRight className="h-4 w-4 text-primary" /> : <ArrowDownRight className="h-4 w-4 text-red-400" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold">{t.title}</div>
+                      <div className="text-xs text-gray-500">{t.date} • {t.id}</div>
+                    </div>
+                    <Badge className={`text-[10px] ${t.type === "credit" ? "bg-primary/20 text-primary border-primary/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}>
+                      {t.category}
+                    </Badge>
+                    <div className={`text-sm font-bold shrink-0 ${t.type === "credit" ? "text-primary" : "text-red-400"}`}>
+                      {t.type === "credit" ? "+" : "-"}₹{t.amount.toLocaleString()}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

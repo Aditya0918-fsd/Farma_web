@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { type Language, TRANSLATIONS, type Translations } from "@/lib/translations.ts";
 import { toast } from "sonner";
+import { api } from "@/services/api";
 
 export interface CropListing {
   id: string;
@@ -100,6 +101,21 @@ export interface UserProfile {
   createdAt: string;
 }
 
+export interface RegisteredAccount {
+  id: string;
+  fullName: string;
+  phone: string;
+  password?: string;
+  role: "farmer" | "dealer";
+  state: string;
+  district: string;
+  village: string;
+  businessName?: string;
+  dealerType?: string;
+  occupation?: string;
+  createdAt: string;
+}
+
 export interface MachineryBookingRequest {
   id: string;
   userName: string;
@@ -193,7 +209,20 @@ export interface UserNotification {
   pdfFileName?: string;
 }
 
+export interface WalletTransaction {
+  id: string;
+  title: string;
+  type: "credit" | "debit";
+  amount: number;
+  date: string;
+  category: string;
+}
+
 interface AppContextType {
+  // MongoDB Database Integration Status
+  mongoConnected: boolean;
+  mongoDatabase: string;
+
   // Language
   language: Language;
   setLanguage: (lang: Language) => void;
@@ -245,7 +274,6 @@ interface AppContextType {
   labourBookings: LabourBookingRequest[];
   addLabourBooking: (booking: Omit<LabourBookingRequest, "id" | "status" | "createdAt">) => void;
   assignLaboursToBooking: (id: string, assigned: Array<{ name: string; phone: string; charges: string }>, notes?: string) => void;
-
   // Expert Advice
   expertAdviceQueries: ExpertAdviceQuery[];
   addExpertQuery: (query: Omit<ExpertAdviceQuery, "id" | "status" | "createdAt">) => void;
@@ -259,9 +287,16 @@ interface AppContextType {
 
   // User Profile & Auth Session
   user: UserProfile | null;
+  registeredAccounts: RegisteredAccount[];
+  registerNewAccount: (accountData: Omit<RegisteredAccount, "id" | "createdAt">) => RegisteredAccount;
   loginUser: (profileData: Omit<UserProfile, "id" | "createdAt">) => void;
   logoutUser: () => void;
   updateUserProfile: (updated: Partial<UserProfile>) => void;
+
+  // User Wallet & Transactions
+  walletTransactions: WalletTransaction[];
+  walletBalance: number;
+  addWalletTransaction: (txn: Omit<WalletTransaction, "id" | "date">) => void;
 
   // User Notifications
   notifications: UserNotification[];
@@ -283,6 +318,7 @@ interface AppContextType {
   kccApplications: KccApplication[];
   approveKccApplication: (id: string) => void;
   rejectKccApplication: (id: string) => void;
+  loadAllKccApplications: () => Promise<void>;
 
   // Dealer KCC & POS Features
   dealerApplyFarmerKcc: (appData: Omit<KccApplication, "id" | "status" | "createdAt">) => void;
@@ -371,6 +407,10 @@ const INITIAL_LABOUR_TYPES = [
 ];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // MongoDB Connection State
+  const [mongoConnected, setMongoConnected] = useState<boolean>(false);
+  const [mongoDatabase, setMongoDatabase] = useState<string>("Farma");
+
   // Language State
   const [language, setLanguageState] = useState<Language>(() => {
     return (localStorage.getItem("krivexa_lang") as Language) || "en";
@@ -402,51 +442,101 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem("krivexa_admin_session");
   };
 
-  // KCC State
-  const [isKccIssued, setIsKccIssued] = useState<boolean>(() => {
-    return localStorage.getItem("krivexa_kcc_issued") === "true";
-  });
-  const [kccApplications, setKccApplications] = useState<KccApplication[]>(() => {
-    const saved = localStorage.getItem("krivexa_kcc_apps");
-    return saved ? JSON.parse(saved) : [
-      {
-        id: "kcc-1001",
-        fullName: "Ramesh Farmer",
-        phone: "9876543210",
-        aadhaar: "1234-5678-9012",
-        address: "Village Rampur",
-        district: "Patna",
-        landSize: "3.5",
-        status: "approved",
-        cardNumber: "KCC-BH-2026-9041",
-        issueDate: "2026-08-20",
-        createdAt: new Date().toISOString(),
-      }
-    ];
-  });
+  // KCC State — always starts false; determined purely by approved KCC application
+  const [isKccIssuedState, setIsKccIssuedState] = useState<boolean>(false);
+  // Clear any stale kcc_issued flag from previous demo sessions
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("krivexa_kcc_issued");
+  }
+  const [kccApplications, setKccApplications] = useState<KccApplication[]>([]);
   const [isKccAlertOpen, setIsKccAlertOpen] = useState<boolean>(false);
   const [isKccAppModalOpen, setIsKccAppModalOpen] = useState<boolean>(false);
+
+  // MongoDB Synchronization & State Hydration from Database "Farma"
+  useEffect(() => {
+    const syncMongoData = async () => {
+      try {
+        const health = await api.checkHealth();
+        if (health && health.isConnected) {
+          setMongoConnected(true);
+          setMongoDatabase(health.database || "Farma");
+          await api.seedDatabase();
+
+          const [
+            remoteCrops,
+            remoteLabourReqs,
+            remoteLabourTypes,
+            remoteMachinery,
+            remoteExpert,
+            remoteMandi,
+            remoteDealers,
+            remoteVideos,
+            remoteFarmers,
+            remoteOrders,
+            remoteNotifs
+          ] = await Promise.all([
+            api.getCrops(),
+            api.getLabourBookings(),
+            api.getLabourTypes(),
+            api.getMachineryBookings(),
+            api.getExpertQueries(),
+            api.getMandiRates(),
+            api.getDealerListings(),
+            api.getPathshalaVideos(),
+            api.getRegisteredFarmers(),
+            api.getOrders(),
+            api.getNotifications()
+          ]);
+
+          // NOTE: KCC applications are NOT loaded here globally.
+          // They are loaded per-user in loginUser(), and for admin via loadAllKccApplications().
+          if (remoteCrops && remoteCrops.length > 0) setCropListings(remoteCrops);
+          if (remoteLabourReqs && remoteLabourReqs.length > 0) setLabourBookings(remoteLabourReqs);
+          if (remoteLabourTypes && remoteLabourTypes.length > 0) setLabourTypes(remoteLabourTypes);
+          if (remoteMachinery && remoteMachinery.length > 0) setMachineryBookings(remoteMachinery);
+          if (remoteExpert && remoteExpert.length > 0) setExpertAdviceQueries(remoteExpert);
+          if (remoteMandi && remoteMandi.length > 0) setMandiRates(remoteMandi);
+          if (remoteDealers && remoteDealers.length > 0) setDealerListings(remoteDealers);
+          if (remoteVideos && remoteVideos.length > 0) setPathshalaVideos(remoteVideos);
+          if (remoteFarmers && remoteFarmers.length > 0) setRegisteredFarmers(remoteFarmers);
+          if (remoteOrders && remoteOrders.length > 0) setOrders(remoteOrders);
+          if (remoteNotifs && remoteNotifs.length > 0) setNotifications(remoteNotifs);
+        } else {
+          setMongoConnected(false);
+        }
+      } catch (err) {
+        console.warn("[MongoDB] Sync warning:", err);
+      }
+    };
+
+    syncMongoData();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("krivexa_kcc_apps", JSON.stringify(kccApplications));
   }, [kccApplications]);
 
-  const checkKccPermission = (): boolean => {
-    if (isKccIssued || isAdminLoggedIn) {
+  const checkKccPermission = (actionName?: string): boolean => {
+    if (isKccIssued) {
       return true;
     }
+    setIsKccAppModalOpen(true);
     setIsKccAlertOpen(true);
+    toast.error(`🔒 KCC Verification Required! Please apply for Kisan Credit Card (KCC) to ${actionName || "complete this action"}.`);
     return false;
   };
 
   const submitKccApplication = (appData: Omit<KccApplication, "id" | "status" | "createdAt">) => {
     const newApp: KccApplication = {
       ...appData,
+      fullName: appData.fullName || user?.name || "Farmer",
+      phone: appData.phone || user?.phone || "",
       id: `kcc-${Date.now()}`,
       status: "pending",
       createdAt: new Date().toISOString(),
     };
-    setKccApplications((prev) => [newApp, ...prev]);
+    setKccApplications((prev) => [newApp, ...prev.filter((a) => a.phone !== newApp.phone)]);
+    api.submitKccApplication(newApp);
     addNotification(
       "KCC Application Submitted 💳",
       `Your Kisan Credit Card application has been submitted. We will review it shortly.`,
@@ -457,34 +547,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleKccDemoStatus = () => {
-    const nextState = !isKccIssued;
-    setIsKccIssued(nextState);
+    const nextState = !isKccIssuedState;
+    setIsKccIssuedState(nextState);
     localStorage.setItem("krivexa_kcc_issued", nextState ? "true" : "false");
   };
 
   const approveKccApplication = (id: string) => {
+    const cardNumber = `KCC-BH-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     setKccApplications((prev) =>
       prev.map((app) => {
         if (app.id === id) {
           return {
             ...app,
             status: "approved",
-            cardNumber: `KCC-BH-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+            cardNumber,
             issueDate: new Date().toISOString().split("T")[0],
           };
         }
         return app;
       })
     );
-    // Automatically issue KCC to current user state
-    setIsKccIssued(true);
-    localStorage.setItem("krivexa_kcc_issued", "true");
+    api.approveKccApplication(id, cardNumber);
   };
 
   const rejectKccApplication = (id: string) => {
     setKccApplications((prev) =>
       prev.map((app) => (app.id === id ? { ...app, status: "rejected" } : app))
     );
+    api.rejectKccApplication(id);
+  };
+
+  // Admin: load ALL KCC applications from DB (called by admin panel on mount)
+  const loadAllKccApplications = async () => {
+    try {
+      const allApps = await api.getKccApplications();
+      if (allApps && allApps.length > 0) {
+        setKccApplications(allApps);
+      }
+    } catch (e) {
+      console.warn("Failed to load KCC applications:", e);
+    }
   };
 
   // Crop Listings State
@@ -505,6 +607,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setCropListings((prev) => [newListing, ...prev]);
+    api.addCrop(newListing);
     addNotification(
       "Crop Listing Submitted 🌾",
       `Your listing for "${listing.cropName}" (${listing.weight}) has been submitted and is pending review.`,
@@ -519,6 +622,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCropListings((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: "approved" } : item))
     );
+    api.approveCrop(id);
     if (listing) {
       addNotification(
         "Crop Listing Approved ✅",
@@ -534,6 +638,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCropListings((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: "rejected" } : item))
     );
+    api.rejectCrop(id);
   };
 
   // Machinery Booking State
@@ -566,6 +671,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setMachineryBookings((prev) => [newBooking, ...prev]);
+    api.addMachineryBooking(newBooking);
     addNotification(
       "Machinery Booking Request Sent 🚜",
       `Your booking request for ${booking.machineryType} on ${booking.bookingDate} has been sent to admin for allotment.`,
@@ -584,6 +690,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : item
       )
     );
+    api.allotMachinery(id, machineDetails, notes);
     addNotification(
       "Machinery Allotted! 🚜",
       `Your requested machine (${target?.machineryType || "Machinery"}) has been allotted by Admin: ${machineDetails}.`,
@@ -598,6 +705,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMachineryBookings((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: "rejected" } : item))
     );
+    api.rejectMachinery(id);
     addNotification(
       "Machinery Request Declined ❌",
       `Your booking request for ${target?.machineryType || "Machinery"} could not be fulfilled at this time.`,
@@ -620,10 +728,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addLabourType = (type: string) => {
     if (!type.trim() || labourTypes.includes(type)) return;
     setLabourTypes((prev) => [...prev, type.trim()]);
+    api.addLabourType(type.trim());
   };
 
   const removeLabourType = (type: string) => {
     setLabourTypes((prev) => prev.filter((t) => t !== type));
+    api.removeLabourType(type);
   };
 
   const [labourBookings, setLabourBookings] = useState<LabourBookingRequest[]>(() => {
@@ -643,6 +753,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setLabourBookings((prev) => [newBooking, ...prev]);
+    api.addLabourBooking(newBooking);
     addNotification(
       "Labour Booking Request Sent 👷",
       `Your request for ${booking.count} ${booking.labourType}(s) starting ${booking.startDate} has been submitted.`,
@@ -664,6 +775,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : item
       )
     );
+    api.assignLabours(id, assigned, notes);
     addNotification(
       "Labour Assigned to You! ✅",
       `${assigned.length} labourer(s) have been assigned to your booking. Check your booking page for details.`,
@@ -691,6 +803,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setExpertAdviceQueries((prev) => [newQuery, ...prev]);
+    api.addExpertQuery(newQuery);
     addNotification(
       "Expert Advice Query Submitted 🌿",
       `Your query about "${query.cropName}" has been received. An expert will contact you soon.`,
@@ -708,6 +821,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setExpertAdviceQueries((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status, adminReply: reply } : item))
     );
+    api.updateExpertQuery(id, status, reply);
     if (status === "resolved" && reply) {
       addNotification(
         "Expert Advice Received! 🎓",
@@ -743,42 +857,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `mandi-${Date.now()}`,
     };
     setMandiRates((prev) => [newRate, ...prev]);
+    api.addMandiRate(newRate);
   };
 
   const updateMandiRate = (id: string, updated: Partial<MandiRate>) => {
     setMandiRates((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...updated } : item))
     );
+    api.updateMandiRate(id, updated);
   };
 
   const deleteMandiRate = (id: string) => {
     setMandiRates((prev) => prev.filter((item) => item.id !== id));
+    api.deleteMandiRate(id);
   };
 
   // User Profile Session State
   const [user, setUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem("krivexa_user_profile");
     if (saved) return JSON.parse(saved);
-    return {
-      id: "usr-890655",
-      name: "Ram Das",
-      phone: "8906554583",
-      role: "farmer",
-      state: "Uttar pardesh",
-      district: "Vanarasi",
-      village: "Rajpur",
-      pincode: "700101",
-      verificationStatus: "Pending",
-      aadhaarNumber: "Not set",
-      aadhaarFront: "No file uploaded yet",
-      aadhaarBack: "No file uploaded yet",
-      bankHolder: "Not set",
-      bankName: "Not set",
-      bankAccount: "Not set",
-      bankIfsc: "Not set",
-      bankAddress: "Not set",
-      createdAt: new Date().toISOString(),
-    };
+    return null;
   });
 
   const [notifications, setNotifications] = useState<UserNotification[]>(() => {
@@ -817,6 +915,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ];
   });
 
+  const [registeredAccounts, setRegisteredAccounts] = useState<RegisteredAccount[]>(() => {
+    const saved = localStorage.getItem("krivexa_registered_accounts");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("krivexa_registered_accounts", JSON.stringify(registeredAccounts));
+  }, [registeredAccounts]);
+
   useEffect(() => {
     if (user) {
       localStorage.setItem("krivexa_user_profile", JSON.stringify(user));
@@ -829,13 +936,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem("krivexa_user_notifications", JSON.stringify(notifications));
   }, [notifications]);
 
+  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>(() => {
+    const saved = localStorage.getItem("krivexa_wallet_txns");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("krivexa_wallet_txns", JSON.stringify(walletTransactions));
+  }, [walletTransactions]);
+
+  const addWalletTransaction = (txn: Omit<WalletTransaction, "id" | "date">) => {
+    const newTxn: WalletTransaction = {
+      ...txn,
+      id: `#TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+      date: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+    };
+    setWalletTransactions((prev) => [newTxn, ...prev]);
+  };
+
+  const walletBalance = walletTransactions.reduce((acc, t) => {
+    return t.type === "credit" ? acc + t.amount : acc - t.amount;
+  }, 0);
+
+  const registerNewAccount = (accountData: Omit<RegisteredAccount, "id" | "createdAt">): RegisteredAccount => {
+    const newAccount: RegisteredAccount = {
+      ...accountData,
+      id: `acc-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setRegisteredAccounts((prev) => [newAccount, ...prev.filter(a => a.phone !== newAccount.phone)]);
+    api.saveUser(newAccount);
+    return newAccount;
+  };
+
   const loginUser = (profileData: Omit<UserProfile, "id" | "createdAt">) => {
     const newUser: UserProfile = {
       ...profileData,
       id: `usr-${Date.now()}`,
       createdAt: new Date().toISOString(),
     };
+    // Always reset KCC & Wallet state when a new user logs in — new user profile must be 100% fresh
+    setIsKccIssuedState(false);
+    setKccApplications([]);
+    setWalletTransactions([]);
+    localStorage.removeItem("krivexa_kcc_issued");
+    localStorage.removeItem("krivexa_kcc_apps");
+    localStorage.removeItem("krivexa_wallet_txns");
+
     setUser(newUser);
+    api.saveUser(newUser);
+
+    // Fetch this user's KCC applications from DB after login
+    api.getKccApplications().then((allApps) => {
+      if (allApps && allApps.length > 0) {
+        const userApps = allApps.filter(
+          (app: KccApplication) => app.phone === newUser.phone || app.fullName?.toLowerCase() === newUser.name?.toLowerCase()
+        );
+        if (userApps.length > 0) {
+          setKccApplications(userApps);
+        }
+      }
+    }).catch(() => {});
+
     addNotification(
       "Login Successful 👋",
       `Welcome back, ${newUser.name}! You are logged in as ${newUser.role === "farmer" ? "Farmer" : "Dealer"}.`,
@@ -847,11 +1009,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logoutUser = () => {
     setUser(null);
+    // Clear all user-specific state from localStorage on logout
     localStorage.removeItem("krivexa_user_profile");
+    localStorage.removeItem("krivexa_kcc_issued");
+    localStorage.removeItem("krivexa_kcc_apps");
+    localStorage.removeItem("krivexa_user_notifications");
+    localStorage.removeItem("krivexa_wallet_txns");
+    // Reset KCC & Wallet state in memory so next user starts fresh
+    setIsKccIssuedState(false);
+    setKccApplications([]);
+    setWalletTransactions([]);
+    setNotifications([]);
   };
 
   const updateUserProfile = (updated: Partial<UserProfile>) => {
     setUser((prev) => (prev ? { ...prev, ...updated } : null));
+    if (user?.id) {
+      api.updateUser(user.id, updated);
+    }
   };
 
   const addNotification = (
@@ -876,36 +1051,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       pdfFileName,
     };
     setNotifications((prev) => [newNotif, ...prev]);
+    api.addNotification(newNotif);
   };
 
   const markNotificationAsRead = (id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
+    api.markNotificationRead(id);
   };
 
   const markAllNotificationsAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    api.markAllNotificationsRead();
   };
 
   const deleteNotification = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    api.deleteNotification(id);
   };
 
   const clearAllNotifications = () => {
     setNotifications([]);
+    api.clearAllNotifications();
   };
 
-  const kccDetails = kccApplications.length > 0 ? kccApplications[0] : null;
-  const kccApplicationStatus = kccDetails ? kccDetails.status : "none";
-  const hasAppliedKcc = isKccIssued || kccApplications.length > 0;
+  // User-specific KCC Application Lookup
+  const currentUserKccApp = user
+    ? kccApplications.find(
+        (app) =>
+          (user.phone && app.phone === user.phone) ||
+          (user.name && app.fullName && app.fullName.toLowerCase() === user.name.toLowerCase())
+      ) || null
+    : null;
+
+  const kccDetails = currentUserKccApp;
+  const kccApplicationStatus = currentUserKccApp ? currentUserKccApp.status : "none";
+  // isKccIssued: true ONLY if admin OR if logged-in user has an APPROVED KCC application
+  const isKccIssued = isAdminLoggedIn || (user !== null && currentUserKccApp?.status === "approved");
+  const hasAppliedKcc = user !== null && currentUserKccApp !== null;
 
   // Dealer Features Implementation
-  const [farmerCardStore, setFarmerCardStore] = useState<Record<string, { cardHolder: string; balance: number; status: string }>>({
-    "KCC-BH-2026-9041": { cardHolder: "Ram Das", balance: 25000, status: "active" },
-    "KCC-BH-2026-1002": { cardHolder: "Suresh Patel", balance: 18500, status: "active" },
-    "KCC-BH-2026-1003": { cardHolder: "Anita Devi", balance: 32000, status: "active" },
-  });
+  const [farmerCardStore, setFarmerCardStore] = useState<Record<string, { cardHolder: string; balance: number; status: string }>>({});
 
   const dealerApplyFarmerKcc = (appData: Omit<KccApplication, "id" | "status" | "createdAt">) => {
     const newApp: KccApplication = {
@@ -915,6 +1102,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setKccApplications((prev) => [newApp, ...prev]);
+    api.submitKccApplication(newApp);
     addNotification(
       "Farmer KCC Submitted",
       `KCC Application for ${appData.fullName} submitted successfully by Dealer.`,
@@ -959,6 +1147,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         status: "active"
       }
     }));
+    api.chargeFarmerCard(cleaned, amount);
 
     addNotification(
       "KCC Payment Debited",
@@ -1008,6 +1197,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setDealerListings((prev) => [newListing, ...prev]);
+    api.addDealerListing(newListing);
     addNotification(
       "New Listing Request Sent 📦",
       `Your request to list "${item.title}" (${item.type}) has been sent to Admin for approval.`,
@@ -1022,6 +1212,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDealerListings((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: "approved" } : item))
     );
+    api.approveDealerListing(id);
     if (target) {
       addNotification(
         "Listing Approved by Admin ✅",
@@ -1037,6 +1228,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDealerListings((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: "rejected" } : item))
     );
+    api.rejectDealerListing(id);
   };
 
   const updateDealerListing = (id: string, updated: Partial<DealerListing>) => {
@@ -1052,6 +1244,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return item;
       })
     );
+    api.updateDealerListing(id, updated);
   };
 
   // Kisan Pathshala Videos State & Actions
@@ -1096,32 +1289,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString()
     };
     setPathshalaVideos((prev) => [newVideo, ...prev]);
+    api.addPathshalaVideo(newVideo);
     toast.success("New Pathshala Video uploaded successfully!");
   };
 
   const deletePathshalaVideo = (id: string) => {
     setPathshalaVideos((prev) => prev.filter((v) => v.id !== id));
+    api.deletePathshalaVideo(id);
     toast.success("Pathshala Video removed successfully.");
   };
 
   // Dealer Registered Farmers State (Point 1.iii)
   const [registeredFarmers, setRegisteredFarmers] = useState<RegisteredFarmer[]>(() => {
     const saved = localStorage.getItem("krivexa_registered_farmers");
-    return saved ? JSON.parse(saved) : [
-      {
-        id: "rf-101",
-        name: "Suresh Kumar",
-        phone: "9876543210",
-        aadhaar: "1234-5678-9012",
-        village: "Rampur",
-        district: "Patna",
-        state: "Bihar",
-        pincode: "800001",
-        landSize: "4.5 Acres",
-        registeredByDealer: "Patna Agro Dealer",
-        createdAt: new Date().toISOString(),
-      }
-    ];
+    return saved ? JSON.parse(saved) : [];
   });
 
   useEffect(() => {
@@ -1135,6 +1316,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setRegisteredFarmers((prev) => [newFarmer, ...prev]);
+    api.registerFarmer(newFarmer);
     addNotification(
       "New Farmer Registered 👤",
       `Farmer ${farmerData.name} (+91 ${farmerData.phone}) registered successfully by ${farmerData.registeredByDealer}.`,
@@ -1161,24 +1343,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     if (matched) return matched;
-
-    // Fallback demo KCC record if any search parameter is provided
-    const queryVal = cleanPhone || cleanAadhaar || cleanCard;
-    if (queryVal.length >= 3) {
-      return {
-        id: `kcc-${Date.now()}`,
-        fullName: "Ramesh Kumar (Farmer)",
-        phone: cleanPhone || "9876543210",
-        aadhaar: cleanAadhaar || "1234-5678-9012",
-        cardNumber: cleanCard || "KCC-BH-2026-9041",
-        landSize: "3.5 Acres",
-        district: "Patna",
-        address: "Bihta, Bihar",
-        status: "approved",
-        createdAt: new Date().toISOString(),
-      };
-    }
-
     return null;
   };
 
@@ -1227,22 +1391,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    // Fallback demo profile if dealer searches ANY valid identifier
-    return {
-      exists: true,
-      kccApp: undefined,
-      cardInfo: { exists: true, cardHolder: "Farmer Account", balance: 50000, status: "active" },
-      profile: {
-        name: "Ramesh Kumar (Farmer)",
-        phone: cleanPhone || "9876543210",
-        aadhaar: cleanAadhaar || "1234-5678-9012",
-        district: "Patna",
-        village: "Bihta",
-        landSize: "3.5 Acres",
-        cardNumber: cleanKcc || "KCC-BH-2026-9041",
-        kccStatus: "approved",
-      }
-    };
+    return { exists: false };
   };
 
   // Cart & Order State Management (Personal per user)
@@ -1337,6 +1486,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setOrders((prev) => [newOrder, ...prev]);
+    api.createOrder(newOrder);
     clearCart();
 
     addNotification(
@@ -1358,6 +1508,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
     );
+    api.updateOrderStatus(orderId, newStatus);
     addNotification(
       `Order #${orderId} Updated 📦`,
       `Your product order status has been updated to "${newStatus}" by the dealer.`,
@@ -1425,9 +1576,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteMandiRate,
 
         user,
+        registeredAccounts,
+        registerNewAccount,
         loginUser,
         logoutUser,
         updateUserProfile,
+
+        walletTransactions,
+        walletBalance,
+        addWalletTransaction,
 
         notifications,
         markNotificationAsRead,
@@ -1439,6 +1596,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         kccApplications,
         approveKccApplication,
         rejectKccApplication,
+        loadAllKccApplications,
 
         dealerApplyFarmerKcc,
         checkFarmerCardBalance,
@@ -1461,6 +1619,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         pathshalaVideos,
         addPathshalaVideo,
         deletePathshalaVideo,
+
+        mongoConnected,
+        mongoDatabase,
       }}
     >
       {children}

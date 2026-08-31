@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, RefreshCw, Phone, Lock, Shield, Headphones, Zap, User, Store } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
@@ -11,16 +11,25 @@ import { toast } from "sonner";
 
 type LoginType = "farmer" | "dealer" | "admin";
 
+const generateRandomCaptchaString = () => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let newCaptcha = "";
+  for (let i = 0; i < 5; i++) {
+    newCaptcha += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return newCaptcha;
+};
+
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { loginUser, adminLogin } = useApp();
+  const { loginUser, adminLogin, registeredAccounts } = useApp();
   const [loginType, setLoginType] = useState<LoginType>("farmer");
   const [showPass, setShowPass] = useState(false);
   const [mobileNumber, setMobileNumber] = useState("");
   const [adminId, setAdminId] = useState("");
   const [password, setPassword] = useState("");
   const [inputCaptcha, setInputCaptcha] = useState("");
-  const [captcha, setCaptcha] = useState("7K8P2");
+  const [captcha, setCaptcha] = useState(generateRandomCaptchaString);
   const [isLoading, setIsLoading] = useState(false);
 
   const typeConfig = {
@@ -30,45 +39,92 @@ export default function LoginPage() {
   };
 
   const handleRefreshCaptcha = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let newCaptcha = "";
-    for (let i = 0; i < 5; i++) {
-      newCaptcha += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setCaptcha(newCaptcha);
+    setCaptcha(generateRandomCaptchaString());
   };
+
+  useEffect(() => {
+    handleRefreshCaptcha();
+  }, [loginType]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 1. Verify Captcha
+    if (!inputCaptcha.trim() || inputCaptcha.trim().toUpperCase() !== captcha.toUpperCase()) {
+      toast.error("Invalid Captcha code! Please enter the correct Captcha code shown.");
+      handleRefreshCaptcha();
+      setInputCaptcha("");
+      return;
+    }
+
     setIsLoading(true);
 
     setTimeout(() => {
       setIsLoading(false);
 
+      // 2. Admin Authentication
       if (loginType === "admin") {
         if (adminId.trim() === "Aditya Saha" && password === "Adi890655") {
           adminLogin("Aditya Saha", "Adi890655");
           toast.success("Welcome Admin Aditya Saha! Redirecting to Admin Control Center...");
           navigate("/admin");
         } else {
-          toast.error("Invalid Admin ID or Password! Default Admin ID: Aditya Saha, Password: Adi890655");
+          toast.error("Invalid Admin ID or Password! Admin ID: Aditya Saha, Password: Adi890655");
+          handleRefreshCaptcha();
+          setInputCaptcha("");
         }
         return;
       }
 
-      const roleTitle = loginType === "farmer" ? "Farmer Partner" : "Agri Dealer";
-      
-      // Save User Session to AppContext
+      // 3. Registered User Check & Role Isolation
+      const enteredPhone = mobileNumber.trim();
+      const existingAccount = registeredAccounts.find(
+        (acc) => acc.phone.trim() === enteredPhone
+      );
+
+      // Check if user is registered
+      if (!existingAccount) {
+        toast.error("User does not exist or is not registered! Please register first.");
+        handleRefreshCaptcha();
+        setInputCaptcha("");
+        return;
+      }
+
+      // Check password correctness
+      if (existingAccount.password && existingAccount.password !== password) {
+        toast.error("Invalid login credentials! Password is incorrect.");
+        handleRefreshCaptcha();
+        setInputCaptcha("");
+        return;
+      }
+
+      // Check Role Isolation (Farmers cannot login in Dealer tab & vice versa)
+      if (existingAccount.role !== loginType) {
+        if (existingAccount.role === "farmer") {
+          toast.error("This account is registered as a Farmer. Please switch to the Farmer Login tab.");
+        } else {
+          toast.error("This account is registered as a Dealer. Please switch to the Dealer Login tab.");
+        }
+        handleRefreshCaptcha();
+        setInputCaptcha("");
+        return;
+      }
+
+      // Success: Save User Session to AppContext
       loginUser({
-        name: loginType === "farmer" ? "Rajesh Kumar" : "Kisan Agro Dealer",
-        phone: mobileNumber || "9876543210",
-        role: loginType,
-        state: "Bihar",
-        district: "Patna",
-        village: "Danapur",
+        name: existingAccount.fullName,
+        phone: existingAccount.phone,
+        role: existingAccount.role,
+        state: existingAccount.state,
+        district: existingAccount.district,
+        village: existingAccount.village,
+        businessName: existingAccount.businessName,
+        dealerType: existingAccount.dealerType,
+        occupation: existingAccount.occupation,
       });
 
-      toast.success(`Welcome back! Logged in as ${roleTitle}.`);
+      const roleTitle = loginType === "farmer" ? "Farmer Partner" : "Agri Dealer";
+      toast.success(`Welcome back ${existingAccount.fullName}! Logged in as ${roleTitle}.`);
       navigate("/");
     }, 600);
   };

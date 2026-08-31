@@ -27,12 +27,12 @@ export default function ProfilePage() {
   const [isTcOpen, setIsTcOpen] = useState(false);
 
   // Profile Form State
-  const [name, setName] = useState(user?.name || "Ram Das");
-  const [phone, setPhone] = useState(user?.phone || "8906554583");
-  const [village, setVillage] = useState(user?.village || "Rajpur");
-  const [district, setDistrict] = useState(user?.district || "Vanarasi");
-  const [state, setState] = useState(user?.state || "Uttar pardesh");
-  const [pincode, setPincode] = useState(user?.pincode || "700101");
+  const [name, setName] = useState(user?.name || "");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [village, setVillage] = useState(user?.village || "");
+  const [district, setDistrict] = useState(user?.district || "");
+  const [state, setState] = useState(user?.state || "");
+  const [pincode, setPincode] = useState(user?.pincode || "");
 
   // Aadhaar Form State
   const [aadhaarNum, setAadhaarNum] = useState(user?.aadhaarNumber === "Not set" ? "" : user?.aadhaarNumber || "");
@@ -126,24 +126,28 @@ export default function ProfilePage() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-2xl font-bold text-white">{user?.name || "Ram Das"}</h2>
+                <h2 className="text-2xl font-bold text-white">{user?.name || "User Profile"}</h2>
                 <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[11px] font-semibold px-2.5 py-0.5">
                   <ShieldAlert className="h-3 w-3 mr-1" />
                   {user?.verificationStatus || "Verification Pending"}
                 </Badge>
               </div>
 
-              <p className="text-sm font-semibold text-gray-300 flex items-center gap-2 mt-1">
-                <Phone className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span>+91 {user?.phone || "8906554583"}</span>
-              </p>
+              {user?.phone && (
+                <p className="text-sm font-semibold text-gray-300 flex items-center gap-2 mt-1">
+                  <Phone className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span>+91 {user.phone}</span>
+                </p>
+              )}
 
-              <p className="text-xs text-gray-400 flex items-start gap-1.5 mt-2 leading-relaxed">
-                <MapPin className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                <span>
-                  {user?.village || "Rajpur"}, {user?.district || "Vanarasi"}, {user?.state || "Uttar pardesh"} - {user?.pincode || "700101"}
-                </span>
-              </p>
+              {(user?.village || user?.district || user?.state) && (
+                <p className="text-xs text-gray-400 flex items-start gap-1.5 mt-2 leading-relaxed">
+                  <MapPin className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                  <span>
+                    {[user?.village, user?.district, user?.state].filter(Boolean).join(", ")} {user?.pincode ? `- ${user.pincode}` : ""}
+                  </span>
+                </p>
+              )}
             </div>
 
             <Button

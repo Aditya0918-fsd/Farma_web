@@ -86,7 +86,7 @@ function CropDetailModal({ crop, onClose }: CropDetailModalProps) {
 }
 
 export default function AgriMarketPage() {
-  const { cropListings, checkKccPermission, addToCart, t } = useApp();
+  const { cropListings, checkKccPermission, isKccIssued, setIsKccAppModalOpen, addToCart, t } = useApp();
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [selectedCrop, setSelectedCrop] = useState<CropListing | null>(null);
@@ -149,6 +149,30 @@ export default function AgriMarketPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* KCC APPLICATION BANNER */}
+        {!isKccIssued && (
+          <div className="mb-6 bg-linear-to-r from-amber-950/90 via-amber-900/60 to-black border-2 border-amber-500/70 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400 font-bold">
+                🔒
+              </div>
+              <div>
+                <h3 className="text-base font-black text-amber-200">
+                  Agri Market Buying Gated — Apply for KCC Now
+                </h3>
+                <p className="text-xs text-gray-300 max-w-2xl">
+                  Card-holder verification required to purchase seeds, fertilizers &amp; farm inputs. Apply for KCC now to issue your verified card.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setIsKccAppModalOpen(true)}
+              className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs py-2.5 px-6 rounded-xl shrink-0 shadow-md animate-pulse cursor-pointer border border-amber-300"
+            >
+              Apply for KCC Now →
+            </Button>
+          </div>
+        )}
         {/* Search & Filter */}
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
           <div className="relative flex-1">

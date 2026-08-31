@@ -11,7 +11,7 @@ import FormPreviewModal from "@/components/FormPreviewModal.tsx";
 import { generateFormPdf } from "@/lib/pdfGenerator.ts";
 
 export default function SellCropsPage() {
-  const { addCropListing, checkKccPermission, addNotification, user, t } = useApp();
+  const { addCropListing, checkKccPermission, isKccIssued, setIsKccAppModalOpen, addNotification, user, t } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -122,6 +122,30 @@ export default function SellCropsPage() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-10">
+        {/* KCC APPLICATION BANNER */}
+        {!isKccIssued && (
+          <div className="mb-6 bg-linear-to-r from-amber-950/90 via-amber-900/60 to-black border-2 border-amber-500/70 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400 font-bold">
+                🔒
+              </div>
+              <div>
+                <h3 className="text-base font-black text-amber-200">
+                  Crop Sales Gated — Apply for KCC Now
+                </h3>
+                <p className="text-xs text-gray-300 max-w-2xl">
+                  Selling harvest produce requires an active Kisan Credit Card account. Apply now to get your card number issued by admin!
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setIsKccAppModalOpen(true)}
+              className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs py-2.5 px-6 rounded-xl shrink-0 shadow-md animate-pulse cursor-pointer border border-amber-300"
+            >
+              Apply for KCC Now →
+            </Button>
+          </div>
+        )}
         {submitted ? (
           <div className="bg-[#111] border border-primary/30 rounded-2xl p-10 text-center">
             <div className="w-20 h-20 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">

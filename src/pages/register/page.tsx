@@ -25,7 +25,7 @@ const DEALER_TYPES = [
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { loginUser } = useApp();
+  const { loginUser, registerNewAccount } = useApp();
 
   const [role, setRole] = useState<"farmer" | "dealer">("farmer");
   const [step, setStep] = useState<number>(1);
@@ -34,6 +34,7 @@ export default function RegisterPage() {
   // Form State
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [selectedState, setSelectedState] = useState<string>("Bihar");
   const [selectedDistrict, setSelectedDistrict] = useState<string>("");
   const [village, setVillage] = useState<string>("");
@@ -59,6 +60,14 @@ export default function RegisterPage() {
   // Generate 4-digit OTP & move to Step 2
   const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!phone || phone.length < 10) {
+      toast.error("Please enter a valid 10-digit mobile number");
+      return;
+    }
+    if (!password) {
+      toast.error("Please create a password for your account");
+      return;
+    }
     
     // Create random 4-digit real-time OTP code
     const randomCode = Math.floor(1000 + Math.random() * 9000).toString();
@@ -66,7 +75,7 @@ export default function RegisterPage() {
     setOtp(["", "", "", ""]);
 
     // Display SMS simulation toast
-    toast.success(`📱 SMS Received on ${phone || "mobile"}: Your Krivexa OTP code is ${randomCode}`, {
+    toast.success(`📱 SMS Received on ${phone}: Your Krivexa OTP code is ${randomCode}`, {
       duration: 8000,
     });
 
@@ -94,10 +103,26 @@ export default function RegisterPage() {
     setTimeout(() => {
       setIsVerifying(false);
       
+      const accountName = fullName || (role === "farmer" ? "Farmer User" : "Agri Dealer");
+
+      // Register new user account persistently
+      registerNewAccount({
+        fullName: accountName,
+        phone,
+        password,
+        role,
+        state: selectedState,
+        district: selectedDistrict || "Patna",
+        village: village || "Gram Panchayat",
+        businessName,
+        dealerType,
+        occupation,
+      });
+
       // Save User Session into AppContext
       loginUser({
-        name: fullName || (role === "farmer" ? "Verified Farmer" : "Agri Dealer"),
-        phone: phone || "9876543210",
+        name: accountName,
+        phone,
         role,
         state: selectedState,
         district: selectedDistrict || "Patna",
@@ -394,6 +419,8 @@ export default function RegisterPage() {
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                         <Input
                           type={showPass ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
                           placeholder="Create a strong password"
                           className="pl-10 pr-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600"
                           required
@@ -553,6 +580,8 @@ export default function RegisterPage() {
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                         <Input
                           type={showPass ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
                           placeholder="Create password for dealer portal"
                           className="pl-10 pr-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600"
                           required

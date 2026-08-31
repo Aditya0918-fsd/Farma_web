@@ -9,7 +9,7 @@ import { useApp } from "@/context/AppContext.tsx";
 const MANDIS = ["Kanpur Mandi", "Lucknow Mandi", "Patna Mandi", "Bhopal Mandi", "Nagpur Mandi", "Jaipur Mandi"];
 
 export default function MandiBhavPage() {
-  const { mandiRates, t } = useApp();
+  const { mandiRates, isKccIssued, setIsKccAppModalOpen, t } = useApp();
   const [search, setSearch] = useState("");
   const [selectedMandi, setSelectedMandi] = useState("Kanpur Mandi");
 
@@ -35,6 +35,30 @@ export default function MandiBhavPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* KCC APPLICATION BANNER */}
+        {!isKccIssued && (
+          <div className="mb-6 bg-linear-to-r from-amber-950/90 via-amber-900/60 to-black border-2 border-amber-500/70 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400 font-bold">
+                🔒
+              </div>
+              <div>
+                <h3 className="text-base font-black text-amber-200">
+                  Account Verification &amp; KCC Application Required
+                </h3>
+                <p className="text-xs text-gray-300 max-w-2xl">
+                  You are viewing live Mandi rates. Apply for Kisan Credit Card (KCC) to enable direct crop selling &amp; full trading features!
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setIsKccAppModalOpen(true)}
+              className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs py-2.5 px-6 rounded-xl shrink-0 shadow-md animate-pulse cursor-pointer border border-amber-300"
+            >
+              Apply for KCC Now →
+            </Button>
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
