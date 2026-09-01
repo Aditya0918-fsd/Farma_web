@@ -69,12 +69,12 @@ export default function MandiBhavPage() {
               className="pl-10 bg-white/5 border-white/10 text-white"
             />
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 overflow-x-auto pb-1 max-w-full">
             {MANDIS.map((m) => (
               <button
                 key={m}
                 onClick={() => setSelectedMandi(m)}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${selectedMandi === m ? "bg-primary text-black" : "bg-white/5 border border-white/10 text-gray-300 hover:border-primary/40"}`}
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0 ${selectedMandi === m ? "bg-primary text-black font-bold" : "bg-white/5 border border-white/10 text-gray-300 hover:border-primary/40"}`}
               >
                 <MapPin className="h-3 w-3 inline mr-1" />{m}
               </button>

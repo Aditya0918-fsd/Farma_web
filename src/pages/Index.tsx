@@ -461,17 +461,17 @@ export default function Index() {
   };
 
   const SERVICES = [
-    { icon: TrendingUp, label: t.services.mandiBhavTitle, desc: t.services.mandiBhavDesc, href: "/mandi-bhav" },
-    { icon: ShoppingCart, label: t.services.buyInputsTitle, desc: t.services.buyInputsDesc, href: "/agri-market" },
-    { icon: Package, label: t.services.sellCropsTitle, desc: t.services.sellCropsDesc, href: "/sell-crops" },
-    { icon: Tractor, label: "Machinery Booking", desc: "Book tractors & implements instantly", href: "/machinery-booking" },
-    { icon: Users, label: t.services.labourBookingTitle, desc: t.services.labourBookingDesc, href: "/labour-booking" },
-    { icon: MessageSquare, label: t.services.expertAdviceTitle, desc: t.services.expertAdviceDesc, href: "/expert-advice" },
-    { icon: CloudSun, label: t.services.weatherTitle, desc: t.services.weatherDesc, href: "/weather" },
-    { icon: Wallet, label: t.services.walletTitle, desc: t.services.walletDesc, href: "/wallet" },
+    { icon: TrendingUp, label: t.services.mandiBhavTitle, desc: t.services.mandiBhavDesc, href: "/mandi-bhav", badge: "Live Rates" },
+    { icon: ShoppingCart, label: t.services.buyInputsTitle, desc: t.services.buyInputsDesc, href: "/agri-market", badge: "Verified" },
+    { icon: Package, label: t.services.sellCropsTitle, desc: t.services.sellCropsDesc, href: "/sell-crops", badge: "Direct Market" },
+    { icon: Tractor, label: "Machinery Booking", desc: "Book tractors, rotavators, and harvesters nearby.", href: "/machinery-booking", badge: "Instant" },
+    { icon: Users, label: t.services.labourBookingTitle, desc: t.services.labourBookingDesc, href: "/labour-booking", badge: "On-Demand" },
+    { icon: MessageSquare, label: t.services.expertAdviceTitle, desc: t.services.expertAdviceDesc, href: "/expert-advice", badge: "24/7 Support" },
+    { icon: CloudSun, label: t.services.weatherTitle, desc: t.services.weatherDesc, href: "/weather", badge: "Live Forecast" },
+    { icon: Wallet, label: t.services.walletTitle, desc: t.services.walletDesc, href: "/wallet", badge: "Secure" },
     ...(user?.role === "dealer" ? [
-      { icon: ShieldCheck, label: "Customer Services", desc: "KCC, Registration & POS Billing", action: () => setIsCustomerServicesModalOpen(true) },
-      { icon: Plus, label: "Add Products/Services", desc: "List products, machinery & labour", action: () => setIsAddListingModalOpen(true) },
+      { icon: ShieldCheck, label: "Customer Services", desc: "KCC Status, Farmer Registration & POS Billing", action: () => setIsCustomerServicesModalOpen(true), badge: "New Hub" },
+      { icon: Plus, label: "Add Products/Services", desc: "Submit product listings, machinery fleet & worker teams", action: () => setIsAddListingModalOpen(true), badge: "Dealer Tool" },
     ] : []),
   ];
 
@@ -525,32 +525,20 @@ export default function Index() {
                 <Leaf className="h-4 w-4 text-primary" />
                 <span className="text-primary text-sm font-medium">{t.hero.badge}</span>
               </div>
-              <h1 className="text-5xl md:text-7xl font-black mb-6 leading-none tracking-tight" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+              <h1 className="text-3xl sm:text-5xl md:text-7xl font-black mb-6 leading-none tracking-tight" style={{ fontFamily: "Rajdhani, sans-serif" }}>
                 <span className="text-white">{t.hero.title1}</span><br />
                 <span className="text-primary">{t.hero.title2}</span><br />
                 <span className="text-white">{t.hero.title3}</span><br />
                 <span className="text-primary">{t.hero.title4}</span>
               </h1>
-              <p className="text-gray-300 text-lg md:text-xl mb-8 leading-relaxed max-w-2xl">{t.hero.desc}</p>
+              <p className="text-gray-300 text-base sm:text-lg md:text-xl mb-8 leading-relaxed max-w-2xl">{t.hero.desc}</p>
               <div className="flex flex-wrap gap-4 mb-12">
                 {user ? (
-                  <>
-                    <Link to="/dashboard">
-                      <Button size="lg" className="bg-primary text-black font-bold text-base px-8 hover:bg-primary/90 rounded-full shadow-lg hover:shadow-primary/20">
-                        Go to Dashboard <ArrowRight className="ml-2 h-5 w-5" />
-                      </Button>
-                    </Link>
-                    {!isKccIssued && (
-                      <Button
-                        size="lg"
-                        onClick={() => setIsKccAppModalOpen(true)}
-                        className="bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-base px-8 rounded-full border-2 border-amber-300 shadow-xl shadow-amber-500/30 animate-pulse cursor-pointer"
-                      >
-                        <CreditCard className="mr-2 h-5 w-5 text-black" />
-                        Apply for KCC Now →
-                      </Button>
-                    )}
-                  </>
+                  <Link to="/dashboard">
+                    <Button size="lg" className="bg-primary text-black font-bold text-base px-8 hover:bg-primary/90 rounded-full shadow-lg hover:shadow-primary/20">
+                      Go to Dashboard <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  </Link>
                 ) : (
                   <Link to="/register">
                     <Button size="lg" className="bg-primary text-black font-bold text-base px-8 hover:bg-primary/90 rounded-full">
@@ -559,10 +547,10 @@ export default function Index() {
                   </Link>
                 )}
               </div>
-              <div className="flex flex-wrap gap-8">
+              <div className="flex flex-wrap gap-6 sm:gap-8">
                 {STATS.map((s) => (
                   <div key={s.label}>
-                    <div className="text-2xl font-black text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>{s.value}</div>
+                    <div className="text-xl sm:text-2xl font-black text-primary" style={{ fontFamily: "Rajdhani, sans-serif" }}>{s.value}</div>
                     <div className="text-xs text-gray-400">{s.label}</div>
                   </div>
                 ))}
@@ -572,45 +560,17 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Our Services — icon grid */}
+      {/* Our Services — 8 Card Grid Matching Image 4 & 5 */}
       <section className="py-16 bg-[#0d0d0d]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          
-          {/* PROMINENT KCC APPLICATION AD BANNER */}
-          {user && !isKccIssued && (
-            <div className="mb-10 bg-linear-to-r from-amber-950/90 via-amber-900/60 to-black border-2 border-amber-500/70 rounded-3xl p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-5">
-                <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400">
-                  <CreditCard className="h-8 w-8" />
-                </div>
-                <div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 mb-1.5">
-                    <Lock className="h-3.5 w-3.5 text-amber-400" /> Account Verification &amp; Feature Lock Active
-                  </div>
-                  <h3 className="text-xl md:text-2xl font-black text-amber-200">
-                    Apply for Kisan Credit Card (KCC) Now
-                  </h3>
-                  <p className="text-xs md:text-sm text-gray-300 max-w-2xl mt-1 leading-relaxed">
-                    Buying inputs, selling harvest, labour &amp; machinery bookings are currently locked until KCC verification. Apply now to get your verified card number and unlock 100% platform access!
-                  </p>
-                </div>
-              </div>
-              <Button
-                onClick={() => setIsKccAppModalOpen(true)}
-                className="bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-sm py-3.5 px-8 rounded-2xl shrink-0 cursor-pointer shadow-xl animate-pulse border border-amber-300"
-              >
-                <CreditCard className="h-4 w-4 mr-2 text-black" /> Apply for KCC Now →
-              </Button>
-            </div>
-          )}
-
           <div className="text-center mb-10">
-            <h2 className="text-4xl md:text-5xl font-black mb-2" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black mb-2" style={{ fontFamily: "Rajdhani, sans-serif" }}>
               {t.services.title} <span className="text-primary">{t.services.titleHighlight}</span>
             </h2>
             <p className="text-gray-400 text-sm">{t.services.subtitle}</p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             {SERVICES.map((s, i) => (
               <motion.div
                 key={s.label}
@@ -622,42 +582,79 @@ export default function Index() {
                 {s.action ? (
                   <div
                     onClick={s.action}
-                    className="relative flex flex-col items-center gap-2 p-3.5 rounded-2xl bg-[#111] border border-white/10 hover:border-primary/50 hover:bg-primary/5 transition-all group cursor-pointer hover:-translate-y-1 h-full justify-between overflow-hidden"
+                    className="relative flex flex-col justify-between p-3.5 sm:p-5 rounded-2xl bg-[#111] border border-white/10 hover:border-primary/50 hover:bg-primary/5 transition-all group cursor-pointer hover:-translate-y-1 h-full overflow-hidden"
                   >
-                    {!isKccIssued && (
-                      <span className="absolute top-2 right-2 flex items-center gap-1 bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-xs">
-                        KCC Gate
-                      </span>
-                    )}
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-colors text-primary mt-1">
-                      <s.icon className="h-6 w-6" />
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-black transition-colors">
+                          <s.icon className="h-5 w-5" />
+                        </div>
+                        <span className="text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">
+                          {s.badge}
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-bold text-white mb-1 group-hover:text-primary transition-colors">
+                        {s.label}
+                      </h3>
+                      <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                        {s.desc}
+                      </p>
                     </div>
-                    <div className="text-center">
-                      <div className="text-xs font-bold text-white leading-tight mb-0.5 group-hover:text-primary transition-colors">{s.label}</div>
-                      <div className="text-[10px] text-gray-400 leading-tight">{s.desc}</div>
+                    <div className="mt-4 text-xs font-bold text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                      Explore &gt;
                     </div>
                   </div>
                 ) : (
                   <Link
                     to={s.href}
-                    className="relative flex flex-col items-center gap-2 p-3.5 rounded-2xl bg-[#111] border border-white/10 hover:border-primary/50 hover:bg-primary/5 transition-all group cursor-pointer hover:-translate-y-1 h-full justify-between overflow-hidden"
+                    className="relative flex flex-col justify-between p-5 rounded-2xl bg-[#111] border border-white/10 hover:border-primary/50 hover:bg-primary/5 transition-all group cursor-pointer hover:-translate-y-1 h-full overflow-hidden"
                   >
-                    {!isKccIssued && (
-                      <span className="absolute top-2 right-2 flex items-center gap-1 bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-xs">
-                        KCC Gate
-                      </span>
-                    )}
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-colors text-primary mt-1">
-                      <s.icon className="h-6 w-6" />
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-black transition-colors">
+                          <s.icon className="h-5 w-5" />
+                        </div>
+                        <span className="text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">
+                          {s.badge}
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-bold text-white mb-1 group-hover:text-primary transition-colors">
+                        {s.label}
+                      </h3>
+                      <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                        {s.desc}
+                      </p>
                     </div>
-                    <div className="text-center">
-                      <div className="text-xs font-bold text-white leading-tight mb-0.5 group-hover:text-primary transition-colors">{s.label}</div>
-                      <div className="text-[10px] text-gray-400 leading-tight">{s.desc}</div>
+                    <div className="mt-4 text-xs font-bold text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                      Explore &gt;
                     </div>
                   </Link>
                 )}
               </motion.div>
             ))}
+          </div>
+
+          {/* Bottom KCC Card Section matching Image 5 */}
+          <div className="mt-12 bg-linear-to-r from-amber-950/40 via-[#16130b] to-[#0d0d0d] border border-amber-500/30 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400">
+                <CreditCard className="h-7 w-7" />
+              </div>
+              <div>
+                <h3 className="text-xl md:text-2xl font-black text-amber-300">
+                  Unlock Everything with Kisan Credit Card
+                </h3>
+                <p className="text-xs md:text-sm text-gray-300 max-w-2xl mt-1 leading-relaxed">
+                  Apply for your free KCC to access all platform features — buying, selling, labour booking and expert advice.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setIsKccAppModalOpen(true)}
+              className="w-full md:w-auto bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-sm py-3 px-8 rounded-full shrink-0 cursor-pointer shadow-lg border border-amber-300"
+            >
+              Apply Now
+            </Button>
           </div>
         </div>
       </section>

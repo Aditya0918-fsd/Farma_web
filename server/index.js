@@ -48,18 +48,20 @@ app.use('/api/pathshala', pathshalaRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/cards', cardRoutes);
 
-// Root route
-app.get('/', (req, res) => {
+app.get('/api', (req, res) => {
   res.json({
     message: 'Farma Web MongoDB Backend API Running',
-    database: 'mongodb://localhost:27017/Farma',
     docs: '/api/health',
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`=======================================================`);
-  console.log(`🚀 Farma MongoDB API Server running on port ${PORT}`);
-  console.log(`🔗 Database URL: mongodb://localhost:27017/Farma`);
-  console.log(`=======================================================`);
-});
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`=======================================================`);
+    console.log(`🚀 Farma MongoDB API Server running on port ${PORT}`);
+    console.log(`🔗 Database URL: ${process.env.MONGODB_URI || 'mongodb://localhost:27017/Farma'}`);
+    console.log(`=======================================================`);
+  });
+}
+
+export default app;

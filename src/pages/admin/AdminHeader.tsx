@@ -1,4 +1,4 @@
-import { Search, Bell, Shield, User, Globe } from "lucide-react";
+import { Search, Bell, Shield, User, Globe, Menu } from "lucide-react";
 import { Input } from "@/components/ui/input.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 
@@ -8,6 +8,7 @@ interface AdminHeaderProps {
   activeTabLabel: string;
   adminName?: string;
   adminRole?: string;
+  onOpenSidebar?: () => void;
 }
 
 export default function AdminHeader({
@@ -15,16 +16,25 @@ export default function AdminHeader({
   setSearchQuery,
   activeTabLabel,
   adminName = "Rahul Sharma",
-  adminRole = "Super Admin"
+  adminRole = "Super Admin",
+  onOpenSidebar
 }: AdminHeaderProps) {
   return (
-    <header className="sticky top-0 z-40 bg-[#0e0e0e]/90 backdrop-blur-md border-b border-white/10 px-6 h-16 flex items-center justify-between gap-4">
-      {/* View Title & Breadcrumb */}
-      <div className="flex items-center gap-3">
-        <h2 className="text-lg font-bold text-white tracking-wide" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+    <header className="sticky top-0 z-40 bg-[#0e0e0e]/90 backdrop-blur-md border-b border-white/10 px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      {/* Mobile Sidebar Toggle & View Title */}
+      <div className="flex items-center gap-2.5">
+        {onOpenSidebar && (
+          <button
+            onClick={onOpenSidebar}
+            className="md:hidden text-gray-300 p-2 rounded-lg bg-white/5 border border-white/10 hover:text-emerald-400 cursor-pointer"
+          >
+            <Menu className="h-5 w-5 text-emerald-400" />
+          </button>
+        )}
+        <h2 className="text-base sm:text-lg font-bold text-white tracking-wide truncate max-w-40 sm:max-w-none" style={{ fontFamily: "Rajdhani, sans-serif" }}>
           {activeTabLabel}
         </h2>
-        <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">
+        <Badge className="hidden sm:inline-flex bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">
           Live System
         </Badge>
       </div>

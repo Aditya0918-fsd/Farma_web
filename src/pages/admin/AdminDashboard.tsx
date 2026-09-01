@@ -43,6 +43,7 @@ export default function AdminDashboard() {
   const { adminLogout } = useApp();
   const [activeTab, setActiveTab] = useState<AdminTab>("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Data Stores
   const [farmers, setFarmers] = useState(INITIAL_FARMERS);
@@ -95,6 +96,8 @@ export default function AdminDashboard() {
         pendingVerificationsCount={pendingVerificationsCount}
         pendingRequestsCount={pendingRequestsCount}
         onLogout={adminLogout}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
       />
 
       {/* Main Content Area */}
@@ -104,10 +107,11 @@ export default function AdminDashboard() {
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           activeTabLabel={TAB_LABELS[activeTab]}
+          onOpenSidebar={() => setSidebarOpen(true)}
         />
 
         {/* View Component Render */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-3 sm:p-6 overflow-y-auto">
           {activeTab === "dashboard" && (
             <DashboardView onNavigate={(tab) => setActiveTab(tab as AdminTab)} />
           )}

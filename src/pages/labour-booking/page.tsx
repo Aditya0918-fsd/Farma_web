@@ -112,30 +112,6 @@ export default function LabourBookingPage() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-10 space-y-8">
-        {/* KCC APPLICATION BANNER */}
-        {!isKccIssued && (
-          <div className="bg-linear-to-r from-amber-950/90 via-amber-900/60 to-black border-2 border-amber-500/70 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400 font-bold">
-                🔒
-              </div>
-              <div>
-                <h3 className="text-base font-black text-amber-200">
-                  Labour Booking Gated — Apply for KCC Now
-                </h3>
-                <p className="text-xs text-gray-300 max-w-2xl">
-                  Workforce allocation &amp; hiring services are locked for unverified accounts. Apply for KCC now to unlock all bookings!
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={() => setIsKccAppModalOpen(true)}
-              className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs py-2.5 px-6 rounded-xl shrink-0 shadow-md animate-pulse cursor-pointer border border-amber-300"
-            >
-              Apply for KCC Now →
-            </Button>
-          </div>
-        )}
         {/* Booking Form */}
         <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden">
           <div className="p-6 border-b border-white/10 flex items-center gap-3">

@@ -26,7 +26,7 @@ export default function FormPreviewModal({
   );
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[9999] p-4 overflow-y-auto animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-9999 p-4 overflow-y-auto animate-in fade-in duration-200">
       <div className="bg-[#111] border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-200">
         
         {/* Title Bar */}
@@ -68,11 +68,11 @@ export default function FormPreviewModal({
                 .replace(/_/g, " ");
 
               return (
-                <div key={key} className="grid grid-cols-5 p-3.5 text-xs items-center gap-2 hover:bg-white/5 transition-colors">
-                  <span className="col-span-2 text-gray-400 font-medium tracking-wide">
+                <div key={key} className="flex flex-col sm:grid sm:grid-cols-5 p-3 sm:p-3.5 text-xs items-start sm:items-center gap-1 sm:gap-2 hover:bg-white/5 transition-colors">
+                  <span className="sm:col-span-2 text-gray-400 font-medium tracking-wide text-[11px] sm:text-xs">
                     {formattedKey}
                   </span>
-                  <span className="col-span-3 text-white font-semibold text-right sm:text-left break-all select-all">
+                  <span className="sm:col-span-3 text-white font-semibold text-left sm:text-left break-all select-all text-xs">
                     {String(value)}
                   </span>
                 </div>

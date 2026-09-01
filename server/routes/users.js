@@ -29,8 +29,12 @@ router.post('/', async (req, res) => {
     if (!userData.id) {
       userData.id = `usr-${Date.now()}`;
     }
+    if (userData.fullName && !userData.name) {
+      userData.name = userData.fullName;
+    }
+    const filter = userData.phone ? { phone: userData.phone } : { id: userData.id };
     const user = await User.findOneAndUpdate(
-      { id: userData.id },
+      filter,
       userData,
       { new: true, upsert: true }
     );

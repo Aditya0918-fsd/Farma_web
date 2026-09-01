@@ -442,15 +442,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem("krivexa_admin_session");
   };
 
-  // KCC State — always starts false; determined purely by approved KCC application
-  const [isKccIssuedState, setIsKccIssuedState] = useState<boolean>(false);
-  // Clear any stale kcc_issued flag from previous demo sessions
-  if (typeof window !== "undefined") {
-    localStorage.removeItem("krivexa_kcc_issued");
-  }
+  // KCC State — default to true to unlock 100% platform features for all users
+  const [isKccIssuedState, setIsKccIssuedState] = useState<boolean>(true);
   const [kccApplications, setKccApplications] = useState<KccApplication[]>([]);
   const [isKccAlertOpen, setIsKccAlertOpen] = useState<boolean>(false);
   const [isKccAppModalOpen, setIsKccAppModalOpen] = useState<boolean>(false);
+
+  const checkKccPermission = (_actionName?: string): boolean => {
+    return true;
+  };
 
   // MongoDB Synchronization & State Hydration from Database "Farma"
   useEffect(() => {
@@ -473,7 +473,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             remoteVideos,
             remoteFarmers,
             remoteOrders,
-            remoteNotifs
+            remoteNotifs,
+            remoteUsers
           ] = await Promise.all([
             api.getCrops(),
             api.getLabourBookings(),
@@ -485,11 +486,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             api.getPathshalaVideos(),
             api.getRegisteredFarmers(),
             api.getOrders(),
-            api.getNotifications()
+            api.getNotifications(),
+            api.getUsers()
           ]);
 
-          // NOTE: KCC applications are NOT loaded here globally.
-          // They are loaded per-user in loginUser(), and for admin via loadAllKccApplications().
+          // Hydrate registered user accounts from DB
+          if (remoteUsers && remoteUsers.length > 0) {
+            const mappedAccounts: RegisteredAccount[] = remoteUsers.map((u: any) => ({
+              id: u.id || `acc-${Math.random()}`,
+              fullName: u.fullName || u.name || "Registered User",
+              phone: u.phone || "",
+              password: u.password || "",
+              role: u.role || "farmer",
+              state: u.state || "Bihar",
+              district: u.district || "Patna",
+              village: u.village || "",
+              businessName: u.businessName,
+              dealerType: u.dealerType,
+              occupation: u.occupation,
+              createdAt: u.createdAt || new Date().toISOString(),
+            }));
+            setRegisteredAccounts((prev) => {
+              const combined = [...mappedAccounts];
+              prev.forEach((localAcc) => {
+                if (!combined.some((a) => a.phone === localAcc.phone)) {
+                  combined.push(localAcc);
+                }
+              });
+              return combined;
+            });
+          }
+
           if (remoteCrops && remoteCrops.length > 0) setCropListings(remoteCrops);
           if (remoteLabourReqs && remoteLabourReqs.length > 0) setLabourBookings(remoteLabourReqs);
           if (remoteLabourTypes && remoteLabourTypes.length > 0) setLabourTypes(remoteLabourTypes);
@@ -515,16 +542,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem("krivexa_kcc_apps", JSON.stringify(kccApplications));
   }, [kccApplications]);
-
-  const checkKccPermission = (actionName?: string): boolean => {
-    if (isKccIssued) {
-      return true;
-    }
-    setIsKccAppModalOpen(true);
-    setIsKccAlertOpen(true);
-    toast.error(`🔒 KCC Verification Required! Please apply for Kisan Credit Card (KCC) to ${actionName || "complete this action"}.`);
-    return false;
-  };
 
   const submitKccApplication = (appData: Omit<KccApplication, "id" | "status" | "createdAt">) => {
     const newApp: KccApplication = {

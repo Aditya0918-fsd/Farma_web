@@ -116,30 +116,6 @@ export default function MachineryBookingPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* KCC APPLICATION BANNER */}
-        {!isKccIssued && (
-          <div className="mb-6 bg-linear-to-r from-amber-950/90 via-amber-900/60 to-black border-2 border-amber-500/70 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400 font-bold">
-                🔒
-              </div>
-              <div>
-                <h3 className="text-base font-black text-amber-200">
-                  Machinery Fleet Booking Gated — Apply for KCC Now
-                </h3>
-                <p className="text-xs text-gray-300 max-w-2xl">
-                  On-demand tractor &amp; harvester rentals are restricted until KCC card verification. Apply now to get your card number!
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={() => setIsKccAppModalOpen(true)}
-              className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs py-2.5 px-6 rounded-xl shrink-0 shadow-md animate-pulse cursor-pointer border border-amber-300"
-            >
-              Apply for KCC Now →
-            </Button>
-          </div>
-        )}
         {/* Booking Form & User Requests Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           

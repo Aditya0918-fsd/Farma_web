@@ -578,7 +578,7 @@ export default function DashboardPage() {
               </button>
 
               {showNotifMenu && (
-                <div className="absolute right-0 top-full mt-2 w-76 sm:w-80 bg-[#111] border border-white/10 rounded-2xl shadow-2xl z-50 animate-in fade-in slide-in-from-top-2">
+                <div className="absolute right-0 top-full mt-2 w-76 sm:w-80 max-w-[calc(100vw-2rem)] bg-[#111] border border-white/10 rounded-2xl shadow-2xl z-50 animate-in fade-in slide-in-from-top-2">
                   <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-white/10">
                     <div className="font-bold text-xs text-white flex items-center gap-2">
                       <Bell className="h-4 w-4 text-primary" /> Notifications ({unreadNotifCount})
@@ -632,7 +632,7 @@ export default function DashboardPage() {
               </button>
 
               {showUserMenu && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-[#111] border border-white/10 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
+                <div className="absolute right-0 top-full mt-2 w-56 max-w-[calc(100vw-2rem)] bg-[#111] border border-white/10 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
                   <div className="p-3 bg-white/5 rounded-xl mb-2">
                     <div className="text-xs font-bold text-white">{user?.name || "Ram Das"}</div>
                     <div className="text-[10px] text-gray-400">{user?.phone || "8906554583"}</div>

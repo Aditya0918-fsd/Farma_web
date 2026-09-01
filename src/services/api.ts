@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const checkMongoHealth = async () => {
   try {
@@ -48,6 +48,7 @@ export const api = {
   // Users
   getUsers: () => apiFetch<any[]>('/users'),
   getUserById: (id: string) => apiFetch<any>(`/users?id=${encodeURIComponent(id)}`),
+  getUserByPhone: (phone: string) => apiFetch<any>(`/users?phone=${encodeURIComponent(phone)}`),
   saveUser: (user: any) => apiFetch<any>('/users', { method: 'POST', body: JSON.stringify(user) }),
   updateUser: (id: string, updated: any) => apiFetch<any>(`/users/${id}`, { method: 'PUT', body: JSON.stringify(updated) }),
 

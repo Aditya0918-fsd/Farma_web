@@ -145,18 +145,6 @@ export default function Navbar() {
 
           {/* Right Section Controls */}
           <div className="hidden lg:flex items-center gap-3">
-            {/* KCC Fast Application Button — shown until KCC is approved */}
-            {user && !isKccIssued && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setIsKccAppModalOpen(true)}
-                className="border-amber-500/60 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 hover:text-amber-300 text-xs font-bold animate-pulse cursor-pointer"
-              >
-                <CreditCard className="h-3.5 w-3.5 mr-1" /> KCC Apply
-              </Button>
-            )}
-
             {/* Language Selector */}
             <div className="relative">
               <button
@@ -299,17 +287,6 @@ export default function Navbar() {
                     </div>
                   )}
                 </div>
-
-                {/* Apply for KCC Now Button (Visible in header when logged in and KCC not issued) */}
-                {!isKccIssued && (
-                  <button
-                    onClick={() => setIsKccAppModalOpen(true)}
-                    className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-linear-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black font-extrabold text-xs shadow-lg animate-pulse border border-amber-300/60 cursor-pointer"
-                  >
-                    <CreditCard className="h-3.5 w-3.5 text-black" />
-                    <span>Apply for KCC Now</span>
-                  </button>
-                )}
 
                 {/* User Profile Menu */}
                 <div className="relative">

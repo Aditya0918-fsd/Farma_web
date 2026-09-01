@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label.tsx";
 import Navbar from "@/components/Navbar.tsx";
 import Footer from "@/components/Footer.tsx";
 import { useApp } from "@/context/AppContext.tsx";
+import { api } from "@/services/api.ts";
 import { toast } from "sonner";
 
 type LoginType = "farmer" | "dealer" | "admin";
@@ -46,7 +47,7 @@ export default function LoginPage() {
     handleRefreshCaptcha();
   }, [loginType]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // 1. Verify Captcha
@@ -59,9 +60,7 @@ export default function LoginPage() {
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
-
+    try {
       // 2. Admin Authentication
       if (loginType === "admin") {
         if (adminId.trim() === "Aditya Saha" && password === "Adi890655") {
@@ -73,20 +72,43 @@ export default function LoginPage() {
           handleRefreshCaptcha();
           setInputCaptcha("");
         }
+        setIsLoading(false);
         return;
       }
 
       // 3. Registered User Check & Role Isolation
       const enteredPhone = mobileNumber.trim();
-      const existingAccount = registeredAccounts.find(
+      let existingAccount = registeredAccounts.find(
         (acc) => acc.phone.trim() === enteredPhone
       );
+
+      // If not in local memory state, query backend API
+      if (!existingAccount) {
+        const remoteUser = await api.getUserByPhone(enteredPhone);
+        if (remoteUser && remoteUser.phone) {
+          existingAccount = {
+            id: remoteUser.id || `acc-${Date.now()}`,
+            fullName: remoteUser.fullName || remoteUser.name || "User",
+            phone: remoteUser.phone,
+            password: remoteUser.password || "",
+            role: remoteUser.role || "farmer",
+            state: remoteUser.state || "Bihar",
+            district: remoteUser.district || "Patna",
+            village: remoteUser.village || "",
+            businessName: remoteUser.businessName,
+            dealerType: remoteUser.dealerType,
+            occupation: remoteUser.occupation,
+            createdAt: remoteUser.createdAt || new Date().toISOString(),
+          };
+        }
+      }
 
       // Check if user is registered
       if (!existingAccount) {
         toast.error("User does not exist or is not registered! Please register first.");
         handleRefreshCaptcha();
         setInputCaptcha("");
+        setIsLoading(false);
         return;
       }
 
@@ -95,6 +117,7 @@ export default function LoginPage() {
         toast.error("Invalid login credentials! Password is incorrect.");
         handleRefreshCaptcha();
         setInputCaptcha("");
+        setIsLoading(false);
         return;
       }
 
@@ -107,6 +130,7 @@ export default function LoginPage() {
         }
         handleRefreshCaptcha();
         setInputCaptcha("");
+        setIsLoading(false);
         return;
       }
 
@@ -126,7 +150,12 @@ export default function LoginPage() {
       const roleTitle = loginType === "farmer" ? "Farmer Partner" : "Agri Dealer";
       toast.success(`Welcome back ${existingAccount.fullName}! Logged in as ${roleTitle}.`);
       navigate("/");
-    }, 600);
+    } catch (err) {
+      console.error("Login error:", err);
+      toast.error("Login request failed. Please check network connection.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleWhatsAppLogin = () => {

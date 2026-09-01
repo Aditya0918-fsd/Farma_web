@@ -18,7 +18,8 @@ import {
   Settings,
   LogOut,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Link } from "react-router-dom";
@@ -51,6 +52,8 @@ interface AdminSidebarProps {
   pendingVerificationsCount: number;
   pendingRequestsCount: number;
   onLogout: () => void;
+  sidebarOpen?: boolean;
+  setSidebarOpen?: (open: boolean) => void;
 }
 
 export default function AdminSidebar({
@@ -58,7 +61,9 @@ export default function AdminSidebar({
   setActiveTab,
   pendingVerificationsCount,
   pendingRequestsCount,
-  onLogout
+  onLogout,
+  sidebarOpen = false,
+  setSidebarOpen
 }: AdminSidebarProps) {
   const MENU_GROUPS: {
     groupTitle: string;
@@ -117,23 +122,44 @@ export default function AdminSidebar({
   };
 
   return (
-    <aside className="w-64 bg-[#0d0d0d] border-r border-white/10 flex flex-col h-screen sticky top-0 shrink-0 select-none overflow-y-auto custom-scrollbar">
-      {/* Brand Header */}
-      <div className="p-4 border-b border-white/10 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-900/30">
-            <span className="text-xl">🌿</span>
+    <>
+      {/* Mobile Drawer Backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-xs md:hidden"
+          onClick={() => setSidebarOpen?.(false)}
+        />
+      )}
+
+      <aside
+        className={`w-64 bg-[#0d0d0d] border-r border-white/10 flex flex-col h-screen fixed md:sticky top-0 left-0 z-50 shrink-0 select-none overflow-y-auto custom-scrollbar transition-transform duration-300 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
+        {/* Brand Header */}
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-900/30">
+              <span className="text-xl">🌿</span>
+            </div>
+            <div>
+              <h1 className="text-lg font-black tracking-wider text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+                KRIV<span className="text-emerald-400">E</span>XA
+              </h1>
+              <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">
+                Admin Panel
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-black tracking-wider text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>
-              KRIV<span className="text-emerald-400">E</span>XA
-            </h1>
-            <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">
-              Admin Panel
-            </p>
-          </div>
+          {setSidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="md:hidden text-gray-400 hover:text-white p-1 rounded-lg bg-white/5 border border-white/10 cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
-      </div>
 
       {/* Navigation Menu */}
       <div className="flex-1 p-3 space-y-6">
@@ -148,7 +174,10 @@ export default function AdminSidebar({
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    setSidebarOpen?.(false);
+                  }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-150 ${
                     active
                       ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm"
@@ -195,5 +224,6 @@ export default function AdminSidebar({
         </Button>
       </div>
     </aside>
-  );
+  </>
+);
 }
