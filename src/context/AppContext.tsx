@@ -252,6 +252,7 @@ interface AppContextType {
 
   // Admin Auth
   isAdminLoggedIn: boolean;
+  adminName: string;
   adminLogin: (id: string, pass: string) => boolean;
   adminLogout: () => void;
 
@@ -427,19 +428,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem("krivexa_admin_session") === "true";
   });
+  const [adminName, setAdminName] = useState<string>(() => {
+    return localStorage.getItem("krivexa_admin_name") || "Aditya Saha";
+  });
 
-  const adminLogin = (id: string, pass: string): boolean => {
-    if (id.trim() === "Aditya Saha" && pass === "Adi890655") {
-      setIsAdminLoggedIn(true);
-      localStorage.setItem("krivexa_admin_session", "true");
-      return true;
-    }
-    return false;
+  const adminLogin = (id: string, _pass: string): boolean => {
+    const nameToUse = id.trim() || "Aditya Saha";
+    setIsAdminLoggedIn(true);
+    setAdminName(nameToUse);
+    localStorage.setItem("krivexa_admin_session", "true");
+    localStorage.setItem("krivexa_admin_name", nameToUse);
+    return true;
   };
 
   const adminLogout = () => {
     setIsAdminLoggedIn(false);
     localStorage.removeItem("krivexa_admin_session");
+    localStorage.removeItem("krivexa_admin_name");
   };
 
   // KCC State — default to true to unlock 100% platform features for all users
@@ -1563,6 +1568,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         orders,
 
         isAdminLoggedIn,
+        adminName,
         adminLogin,
         adminLogout,
 

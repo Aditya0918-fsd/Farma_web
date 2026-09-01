@@ -66,20 +66,32 @@ export default function AuditLogsView({ auditLogs }: AuditLogsViewProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-white/5 transition-colors">
-                  <td className="py-3.5 px-4 font-mono font-bold text-emerald-400">{log.id}</td>
-                  <td className="py-3.5 px-4 font-bold text-white flex items-center gap-2">
-                    <ClipboardList className="h-3.5 w-3.5 text-emerald-400" />
-                    {log.adminName}
+              {filteredLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-16 text-gray-500">
+                    <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                    <p className="font-semibold text-sm">No audit logs yet</p>
+                    <p className="text-[11px] mt-1 text-gray-600">
+                      Admin actions and system events will be logged here automatically.
+                    </p>
                   </td>
-                  <td className="py-3.5 px-4 font-bold text-emerald-400">{log.action}</td>
-                  <td className="py-3.5 px-4 text-gray-300 font-medium">{log.module}</td>
-                  <td className="py-3.5 px-4 text-gray-300 max-w-xs truncate">{log.details}</td>
-                  <td className="py-3.5 px-4 text-gray-400 font-mono">{log.dateTime}</td>
-                  <td className="py-3.5 px-4 text-right font-mono text-gray-500">{log.ipAddress}</td>
                 </tr>
-              ))}
+              ) : (
+                filteredLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-white/5 transition-colors">
+                    <td className="py-3.5 px-4 font-mono font-bold text-emerald-400">{log.id}</td>
+                    <td className="py-3.5 px-4 font-bold text-white flex items-center gap-2">
+                      <ClipboardList className="h-3.5 w-3.5 text-emerald-400" />
+                      {log.adminName}
+                    </td>
+                    <td className="py-3.5 px-4 font-bold text-emerald-400">{log.action}</td>
+                    <td className="py-3.5 px-4 text-gray-300 font-medium">{log.module}</td>
+                    <td className="py-3.5 px-4 text-gray-300 max-w-xs truncate">{log.details}</td>
+                    <td className="py-3.5 px-4 text-gray-400 font-mono">{log.dateTime}</td>
+                    <td className="py-3.5 px-4 text-right font-mono text-gray-500">{log.ipAddress}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

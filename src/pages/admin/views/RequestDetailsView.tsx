@@ -166,7 +166,7 @@ export default function RequestDetailsView({ request, onRequestChange, onBack }:
                 className="w-full bg-[#1a1a1a] border border-white/10 text-white text-xs rounded-xl p-2.5 outline-none cursor-pointer"
               >
                 <option value="Kshitiz Rahul">Kshitiz Rahul</option>
-                <option value="Rahul Sharma">Rahul Sharma</option>
+                <option value="Aditya Saha">Aditya Saha (Super Admin)</option>
                 <option value="Neha Verma">Neha Verma</option>
                 <option value="Ankit Singh">Ankit Singh</option>
               </select>

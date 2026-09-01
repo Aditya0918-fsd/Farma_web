@@ -1,131 +1,184 @@
-import { Users, Store, ShoppingCart, CreditCard, TrendingUp, ArrowUpRight, CheckCircle2, Clock } from "lucide-react";
+import { Users, Store, ShoppingCart, CreditCard, TrendingUp, ArrowUpRight, Activity, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import type { Farmer } from "../types.ts";
+import type { Dealer, OrderItem } from "../types.ts";
+import type { KccApplication } from "@/context/AppContext.tsx";
+import { useApp } from "@/context/AppContext.tsx";
 
 interface DashboardViewProps {
   onNavigate: (tab: string) => void;
+  farmers?: Farmer[];
+  dealers?: Dealer[];
+  orders?: OrderItem[];
+  kccApplications?: KccApplication[];
 }
 
-export default function DashboardView({ onNavigate }: DashboardViewProps) {
+export default function DashboardView({
+  onNavigate,
+  farmers = [],
+  dealers = [],
+  orders = [],
+  kccApplications = [],
+}: DashboardViewProps) {
+  const { adminName } = useApp();
+  // ─── Live Stats from real data ───
+  const totalFarmers = farmers.length;
+  const activeFarmers = farmers.filter((f) => f.status === "active").length;
+  const totalDealers = dealers.length;
+  const activeDealers = dealers.filter((d) => d.status === "active").length;
+  const totalOrders = orders.length;
+  const pendingOrders = orders.filter((o) => o.status === "placed" || o.status === "processing").length;
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
+  const kccTotal = kccApplications.length;
+  const kccPending = kccApplications.filter((k) => k.status === "pending").length;
+  const kccApproved = kccApplications.filter((k) => k.status === "approved").length;
+
   const STAT_CARDS = [
-    { title: "Total Farmers", value: "12,540", icon: Users, color: "emerald", tab: "farmers" },
-    { title: "Pending Farmers", value: "320", icon: Clock, color: "amber", tab: "farmers" },
-    { title: "Total Dealers", value: "2,145", icon: Store, color: "emerald", tab: "dealers" },
-    { title: "Pending Dealers", value: "96", icon: Clock, color: "amber", tab: "dealers" },
-    { title: "Total Orders", value: "8,765", icon: ShoppingCart, color: "emerald", tab: "orders" },
-    { title: "Pending Orders", value: "645", icon: Clock, color: "amber", tab: "orders" },
-    { title: "Total Revenue", value: "₹48,75,230", icon: CreditCard, color: "emerald", tab: "payments" },
-    { title: "Pending Payments", value: "₹6,75,420", icon: TrendingUp, color: "amber", tab: "payments" },
+    { title: "Total Farmers", value: totalFarmers.toLocaleString("en-IN"), icon: Users, color: "emerald", tab: "farmers", sub: `${activeFarmers} Active` },
+    { title: "Total Dealers", value: totalDealers.toLocaleString("en-IN"), icon: Store, color: "blue", tab: "dealers", sub: `${activeDealers} Active` },
+    { title: "Total Orders", value: totalOrders.toLocaleString("en-IN"), icon: ShoppingCart, color: "amber", tab: "orders", sub: `${pendingOrders} Pending` },
+    { title: "Total Revenue", value: `₹${totalRevenue.toLocaleString("en-IN")}`, icon: CreditCard, color: "emerald", tab: "payments", sub: "Lifetime" },
+    { title: "KCC Applications", value: kccTotal.toLocaleString("en-IN"), icon: TrendingUp, color: "purple", tab: "kisan_card", sub: `${kccPending} Pending` },
+    { title: "KCC Approved", value: kccApproved.toLocaleString("en-IN"), icon: CheckCircle2, color: "emerald", tab: "kisan_card", sub: "Cards Issued" },
+    { title: "Pending Verifications", value: "0", icon: Activity, color: "amber", tab: "verifications", sub: "Documents" },
+    { title: "Support Tickets", value: "0", icon: Activity, color: "red", tab: "support_tickets", sub: "Open Tickets" },
   ];
 
-  const RECENT_ACTIVITIES = [
-    { title: "New Farmer registration by Rajesh Kumar", time: "10 mins ago", type: "farmer" },
-    { title: "Dealer ABC Agro placed a new order (#ORD8756)", time: "25 mins ago", type: "order" },
-    { title: "Farmer Suresh updated key crop product listing", time: "1 hour ago", type: "product" },
-    { title: "KCC Application approved for Manoj Yadav", time: "2 hours ago", type: "kcc" },
-    { title: "Payout ₹1,09,250 processed for ABC Agro Traders", time: "3 hours ago", type: "payout" },
-  ];
+  const colorMap: Record<string, string> = {
+    emerald: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    blue: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    amber: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    purple: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+    red: "bg-red-500/10 text-red-400 border-red-500/20",
+  };
 
-  const TOP_PRODUCTS = [
-    { name: "Wheat (Grade A)", sales: "₹8,45,000", qty: "320 Qtl", growth: "+14%" },
-    { name: "Rice (Basmati 1121)", sales: "₹6,80,000", qty: "210 Qtl", growth: "+18%" },
-    { name: "Tomato (Hybrid)", sales: "₹4,12,000", qty: "180 Qtl", growth: "+8%" },
-    { name: "NPK Fertilizer 50kg", sales: "₹3,95,000", qty: "450 Bags", growth: "+22%" },
-  ];
+  const iconColorMap: Record<string, string> = {
+    emerald: "bg-emerald-500/10 text-emerald-400",
+    blue: "bg-blue-500/10 text-blue-400",
+    amber: "bg-amber-500/10 text-amber-400",
+    purple: "bg-purple-500/10 text-purple-400",
+    red: "bg-red-500/10 text-red-400",
+  };
+
+  // Registrations donut calc
+  const totalUsers = totalFarmers + totalDealers;
+  const farmerPct = totalUsers > 0 ? Math.round((totalFarmers / totalUsers) * 100) : 0;
+  const dealerPct = totalUsers > 0 ? Math.round((totalDealers / totalUsers) * 100) : 0;
+
+  // Recent KCC applications
+  const recentKcc = kccApplications.slice(0, 5);
+
+  // Recent orders
+  const recentOrders = orders.slice(0, 5);
 
   return (
     <div className="space-y-6">
+      {/* Welcome Banner */}
+      <div className="bg-linear-to-r from-emerald-900/30 to-[#111] border border-emerald-500/20 rounded-2xl p-5 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-black text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>
+            Welcome back, {adminName || "Aditya Saha"}! 👋
+          </h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} — Here's what's happening on Krivexa today.
+          </p>
+        </div>
+        <div className="hidden md:flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs text-emerald-400 font-semibold">Live Data</span>
+        </div>
+      </div>
+
       {/* 8 Stat Cards Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {STAT_CARDS.map((card) => {
           const Icon = card.icon;
-          const isAmber = card.color === "amber";
           return (
             <div
               key={card.title}
               onClick={() => onNavigate(card.tab)}
-              className={`bg-[#111] border rounded-2xl p-4 cursor-pointer transition-all hover:scale-[1.02] shadow-lg ${
-                isAmber ? "border-amber-500/20 hover:border-amber-500/40" : "border-white/10 hover:border-emerald-500/40"
-              }`}
+              className={`bg-[#111] border rounded-2xl p-4 cursor-pointer transition-all hover:scale-[1.02] shadow-lg ${colorMap[card.color]}`}
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold text-gray-400">{card.title}</span>
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                    isAmber ? "bg-amber-500/10 text-amber-400" : "bg-emerald-500/10 text-emerald-400"
-                  }`}
-                >
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${iconColorMap[card.color]}`}>
                   <Icon className="h-4 w-4" />
                 </div>
               </div>
               <div className="text-2xl font-black text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>
                 {card.value}
               </div>
+              <p className="text-[10px] text-gray-500 mt-1 font-medium">{card.sub}</p>
             </div>
           );
         })}
       </div>
 
-      {/* Charts Row: Orders Overview Line Chart & Registrations Donut Chart */}
+      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Orders Overview SVG Chart (2 cols) */}
+        {/* Orders Overview Chart */}
         <div className="lg:col-span-2 bg-[#111] border border-white/10 rounded-2xl p-5 shadow-xl">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="font-bold text-base text-white">Orders Overview</h3>
-              <p className="text-xs text-gray-400">Monthly order volume and revenue growth</p>
+              <h3 className="font-bold text-base text-white">Platform Overview</h3>
+              <p className="text-xs text-gray-400">Real-time activity summary</p>
             </div>
             <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <ArrowUpRight className="h-3 w-3 mr-1" /> +24.5% vs Last Month
+              <ArrowUpRight className="h-3 w-3 mr-1" /> Live
             </Badge>
           </div>
 
-          {/* SVG Line Chart Representation */}
+          {/* Activity Bars */}
           <div className="h-64 w-full flex items-end justify-between gap-2 pt-6 pb-2 px-2 relative">
-            {/* Background Grid Lines */}
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10">
-              <div className="border-b border-white w-full"></div>
-              <div className="border-b border-white w-full"></div>
-              <div className="border-b border-white w-full"></div>
-              <div className="border-b border-white w-full"></div>
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="border-b border-white w-full" />
+              ))}
             </div>
-
-            {/* Bars/Points */}
             {[
-              { month: "Jan", val: 40 },
-              { month: "Feb", val: 55 },
-              { month: "Mar", val: 48 },
-              { month: "Apr", val: 70 },
-              { month: "May", val: 85 },
-              { month: "Jun", val: 65 },
-              { month: "Jul", val: 90 },
-              { month: "Aug", val: 110 },
-              { month: "Sep", val: 95 },
-              { month: "Oct", val: 125 },
-              { month: "Nov", val: 140 },
-              { month: "Dec", val: 160 },
+              { label: "Farmers", val: totalFarmers, max: Math.max(totalFarmers, totalDealers, totalOrders, kccTotal) || 1, color: "emerald" },
+              { label: "Dealers", val: totalDealers, max: Math.max(totalFarmers, totalDealers, totalOrders, kccTotal) || 1, color: "blue" },
+              { label: "Orders", val: totalOrders, max: Math.max(totalFarmers, totalDealers, totalOrders, kccTotal) || 1, color: "amber" },
+              { label: "KCC Apps", val: kccTotal, max: Math.max(totalFarmers, totalDealers, totalOrders, kccTotal) || 1, color: "purple" },
+              { label: "Approved", val: kccApproved, max: Math.max(totalFarmers, totalDealers, totalOrders, kccTotal) || 1, color: "emerald" },
+              { label: "Pending", val: kccPending, max: Math.max(totalFarmers, totalDealers, totalOrders, kccTotal) || 1, color: "red" },
             ].map((d) => (
-              <div key={d.month} className="flex-1 flex flex-col items-center gap-2 group z-10">
-                <div className="w-full bg-emerald-500/10 hover:bg-emerald-500/30 rounded-t-lg transition-all relative flex items-end justify-center" style={{ height: `${(d.val / 160) * 180}px` }}>
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-md shadow-emerald-400/50 mb-1 group-hover:scale-125 transition-transform"></div>
+              <div key={d.label} className="flex-1 flex flex-col items-center gap-2 group z-10">
+                <div
+                  className={`w-full rounded-t-lg transition-all relative flex items-end justify-center ${
+                    d.color === "emerald" ? "bg-emerald-500/20 hover:bg-emerald-500/40" :
+                    d.color === "blue" ? "bg-blue-500/20 hover:bg-blue-500/40" :
+                    d.color === "amber" ? "bg-amber-500/20 hover:bg-amber-500/40" :
+                    d.color === "purple" ? "bg-purple-500/20 hover:bg-purple-500/40" :
+                    "bg-red-500/20 hover:bg-red-500/40"
+                  }`}
+                  style={{ height: `${Math.max((d.val / d.max) * 180, 8)}px` }}
+                >
+                  <div className={`w-2.5 h-2.5 rounded-full mb-1 group-hover:scale-125 transition-transform ${
+                    d.color === "emerald" ? "bg-emerald-400 shadow-emerald-400/50" :
+                    d.color === "blue" ? "bg-blue-400 shadow-blue-400/50" :
+                    d.color === "amber" ? "bg-amber-400 shadow-amber-400/50" :
+                    d.color === "purple" ? "bg-purple-400 shadow-purple-400/50" :
+                    "bg-red-400 shadow-red-400/50"
+                  } shadow-md`} />
                 </div>
-                <span className="text-[10px] font-mono text-gray-400">{d.month}</span>
+                <span className="text-[10px] font-mono text-gray-400">{d.label}</span>
+                <span className="text-[10px] font-bold text-white">{d.val}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Registrations Overview Donut Chart */}
+        {/* User Distribution Donut Chart */}
         <div className="bg-[#111] border border-white/10 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
           <div>
-            <h3 className="font-bold text-base text-white mb-1">Registrations Overview</h3>
-            <p className="text-xs text-gray-400">Farmers vs Dealers Distribution</p>
+            <h3 className="font-bold text-base text-white mb-1">User Distribution</h3>
+            <p className="text-xs text-gray-400">Farmers vs Dealers</p>
           </div>
 
-          {/* SVG Donut */}
           <div className="py-6 flex flex-col items-center justify-center relative">
             <svg className="w-44 h-44 transform -rotate-90" viewBox="0 0 36 36">
-              {/* Outer circle background */}
               <path
                 className="text-gray-800"
                 strokeWidth="4"
@@ -133,31 +186,33 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 fill="none"
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
-              {/* Farmers segment (85%) */}
-              <path
-                className="text-emerald-500"
-                strokeDasharray="85, 100"
-                strokeWidth="4"
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              {/* Dealers segment (15%) */}
-              <path
-                className="text-amber-500"
-                strokeDasharray="15, 100"
-                strokeDashoffset="-85"
-                strokeWidth="4"
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
+              {totalUsers > 0 && (
+                <>
+                  <path
+                    className="text-emerald-500"
+                    strokeDasharray={`${farmerPct}, 100`}
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    stroke="currentColor"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className="text-blue-500"
+                    strokeDasharray={`${dealerPct}, 100`}
+                    strokeDashoffset={`-${farmerPct}`}
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    stroke="currentColor"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </>
+              )}
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
               <span className="text-2xl font-black text-white" style={{ fontFamily: "Rajdhani, sans-serif" }}>
-                14,685
+                {totalUsers.toLocaleString("en-IN")}
               </span>
               <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Total Users</span>
             </div>
@@ -165,70 +220,90 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
           <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/10">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+              <div className="w-3 h-3 rounded-full bg-emerald-500" />
               <div>
-                <p className="text-xs font-bold text-white">12,540</p>
-                <p className="text-[10px] text-gray-400">Farmers (85%)</p>
+                <p className="text-xs font-bold text-white">{totalFarmers.toLocaleString("en-IN")}</p>
+                <p className="text-[10px] text-gray-400">Farmers ({farmerPct}%)</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+              <div className="w-3 h-3 rounded-full bg-blue-500" />
               <div>
-                <p className="text-xs font-bold text-white">2,145</p>
-                <p className="text-[10px] text-gray-400">Dealers (15%)</p>
+                <p className="text-xs font-bold text-white">{totalDealers.toLocaleString("en-IN")}</p>
+                <p className="text-[10px] text-gray-400">Dealers ({dealerPct}%)</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Lower Row: Recent Activities & Top Products */}
+      {/* Lower Row: Recent KCC Applications & Recent Orders */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activities Feed */}
+        {/* Recent KCC Applications */}
         <div className="bg-[#111] border border-white/10 rounded-2xl p-5 shadow-xl">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-base text-white">Recent Activities</h3>
-            <Button variant="link" onClick={() => onNavigate("audit_logs")} className="text-xs text-emerald-400 p-0 h-auto">
-              View Audit Logs →
+            <h3 className="font-bold text-base text-white">Recent KCC Applications</h3>
+            <Button variant="link" onClick={() => onNavigate("kisan_card")} className="text-xs text-emerald-400 p-0 h-auto">
+              View All →
             </Button>
           </div>
-          <div className="space-y-3">
-            {RECENT_ACTIVITIES.map((act, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                    <CheckCircle2 className="h-4 w-4" />
+          {recentKcc.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 text-xs">
+              <p>No KCC applications yet.</p>
+              <p className="mt-1 text-gray-600">Applications will appear here when farmers apply.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentKcc.map((app) => (
+                <div key={app.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                  <div>
+                    <p className="text-xs font-bold text-white">{app.fullName}</p>
+                    <p className="text-[10px] text-gray-400">{app.phone} · {app.district}</p>
                   </div>
-                  <span className="text-xs font-medium text-gray-200">{act.title}</span>
+                  <Badge className={
+                    app.status === "approved"
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                      : app.status === "pending"
+                      ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                      : "bg-red-500/10 text-red-400 border-red-500/20"
+                  }>
+                    {app.status}
+                  </Badge>
                 </div>
-                <span className="text-[10px] text-gray-500 font-mono shrink-0">{act.time}</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Top Products */}
+        {/* Recent Orders */}
         <div className="bg-[#111] border border-white/10 rounded-2xl p-5 shadow-xl">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-base text-white">Top Performing Products</h3>
-            <Button variant="link" onClick={() => onNavigate("products")} className="text-xs text-emerald-400 p-0 h-auto">
-              View All Products →
+            <h3 className="font-bold text-base text-white">Recent Orders</h3>
+            <Button variant="link" onClick={() => onNavigate("orders")} className="text-xs text-emerald-400 p-0 h-auto">
+              View All Orders →
             </Button>
           </div>
-          <div className="space-y-3">
-            {TOP_PRODUCTS.map((prod) => (
-              <div key={prod.name} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                <div>
-                  <p className="text-xs font-bold text-white">{prod.name}</p>
-                  <p className="text-[10px] text-gray-400">{prod.qty} Sold</p>
+          {recentOrders.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 text-xs">
+              <p>No orders yet.</p>
+              <p className="mt-1 text-gray-600">Orders from farmers and dealers will appear here.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                  <div>
+                    <p className="text-xs font-bold text-white font-mono">{order.id}</p>
+                    <p className="text-[10px] text-gray-400">{order.buyer} · {order.product}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-emerald-400">₹{order.amount.toLocaleString("en-IN")}</p>
+                    <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px]">{order.status}</Badge>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold text-emerald-400">{prod.sales}</p>
-                  <span className="text-[10px] text-emerald-500 font-semibold">{prod.growth}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

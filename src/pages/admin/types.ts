@@ -178,6 +178,7 @@ export interface AdminUserItem {
   status: "active" | "inactive";
   lastLogin: string;
   phone?: string;
+  password?: string;
 }
 
 export interface AuditLogItem {

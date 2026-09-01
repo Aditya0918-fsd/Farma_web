@@ -19,7 +19,13 @@ import {
   LogOut,
   ChevronRight,
   ExternalLink,
-  X
+  X,
+  Wallet,
+  Bell,
+  Headphones,
+  FileText,
+  CreditCard as KisanCard,
+  Wrench
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Link } from "react-router-dom";
@@ -41,6 +47,12 @@ export type AdminTab =
   | "complaints"
   | "announcements"
   | "reports"
+  | "finance_wallet"
+  | "notifications_mgmt"
+  | "support_tickets"
+  | "cms_management"
+  | "kisan_card"
+  | "services"
   | "roles"
   | "admin_users"
   | "audit_logs"
@@ -80,7 +92,8 @@ export default function AdminSidebar({
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
         { id: "farmers", label: "Farmers Management", icon: Users },
         { id: "dealers", label: "Dealers Management", icon: Store },
-        { id: "verifications", label: "Verifications", icon: BadgeCheck, badge: pendingVerificationsCount }
+        { id: "verifications", label: "Verifications", icon: BadgeCheck, badge: pendingVerificationsCount },
+        { id: "services", label: "Services Management", icon: Wrench },
       ]
     },
     {
@@ -90,15 +103,25 @@ export default function AdminSidebar({
         { id: "products", label: "Products Management", icon: Package },
         { id: "orders", label: "Orders Management", icon: ShoppingCart },
         { id: "payments", label: "Payments & Txns", icon: CreditCard },
-        { id: "payouts", label: "Payouts & Commissions", icon: Banknote }
+        { id: "payouts", label: "Payouts & Commissions", icon: Banknote },
+        { id: "finance_wallet", label: "Finance & Wallet", icon: Wallet },
       ]
     },
     {
       groupTitle: "Support & Content",
       items: [
         { id: "complaints", label: "Complaints & Disputes", icon: AlertTriangle },
+        { id: "support_tickets", label: "Support Tickets", icon: Headphones },
         { id: "announcements", label: "Announcements", icon: Megaphone },
-        { id: "reports", label: "Reports & Analytics", icon: BarChart3 }
+        { id: "notifications_mgmt", label: "Notifications", icon: Bell },
+        { id: "cms_management", label: "CMS / Pages", icon: FileText },
+        { id: "reports", label: "Reports & Analytics", icon: BarChart3 },
+      ]
+    },
+    {
+      groupTitle: "Finance Features",
+      items: [
+        { id: "kisan_card", label: "Krivexa Kisan Card", icon: KisanCard },
       ]
     },
     {
