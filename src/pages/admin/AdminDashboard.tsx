@@ -69,16 +69,38 @@ export default function AdminDashboard() {
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
   const [settings, setSettings] = useState<AdminSettings>(EMPTY_SETTINGS);
 
-  // ─── Load data from MongoDB on mount ───
+  // ─── Load data from MongoDB on mount concurrently ───
   const loadAdminData = useCallback(async () => {
     setLoading(true);
-    try {
-      // Load KCC applications from DB
-      await loadAllKccApplications();
+    // Safety fallback: ensure loading never hangs for more than 800ms
+    const timer = setTimeout(() => setLoading(false), 800);
 
-      // Load users as farmers/dealers
-      const users = await api.getUsers();
-      if (users && users.length > 0) {
+    try {
+      const [
+        _kccRes,
+        usersRes,
+        ordersRes,
+        cropsRes,
+        dealerListingsRes,
+        labourRes,
+        machineryRes,
+        expertRes,
+        notifsRes,
+      ] = await Promise.allSettled([
+        loadAllKccApplications(),
+        api.getUsers(),
+        api.getOrders(),
+        api.getCrops(),
+        api.getDealerListings(),
+        api.getLabourBookings(),
+        api.getMachineryBookings(),
+        api.getExpertQueries(),
+        api.getNotifications(),
+      ]);
+
+      // Process users
+      if (usersRes.status === "fulfilled" && usersRes.value && usersRes.value.length > 0) {
+        const users = usersRes.value;
         const farmerUsers = users.filter((u: any) => u.role === "farmer").map((u: any, idx: number) => ({
           id: u.id || `FRM${1000 + idx}`,
           name: u.fullName || u.name || "—",
@@ -124,10 +146,9 @@ export default function AdminDashboard() {
         if (dealerUsers.length > 0) setDealers(dealerUsers);
       }
 
-      // Load orders from DB
-      const dbOrders = await api.getOrders();
-      if (dbOrders && dbOrders.length > 0) {
-        setOrders(dbOrders.map((o: any, idx: number) => ({
+      // Process orders
+      if (ordersRes.status === "fulfilled" && ordersRes.value && ordersRes.value.length > 0) {
+        setOrders(ordersRes.value.map((o: any, idx: number) => ({
           id: o.id || `ORD${8000 + idx}`,
           buyer: o.userName || o.userId || "—",
           buyerId: o.userId || "—",
@@ -144,47 +165,45 @@ export default function AdminDashboard() {
         })));
       }
 
-      // Load crop listings as products
-      const crops = await api.getCrops();
-      if (crops && crops.length > 0) {
-        setProducts(crops.map((c: any) => ({
-          id: c.id || `PROD${Math.random()}`,
-          name: c.cropName || "—",
-          seller: c.sellerName || "—",
-          sellerType: "Farmer" as const,
-          category: "Crops",
-          quantity: c.weight || "—",
-          price: c.price || 0,
-          status: (c.status || "pending") as ProductItem["status"],
-          image: c.image,
-        })));
+      // Process crops & products
+      const newProducts: ProductItem[] = [];
+      if (cropsRes.status === "fulfilled" && cropsRes.value && cropsRes.value.length > 0) {
+        cropsRes.value.forEach((c: any) => {
+          newProducts.push({
+            id: c.id || `PROD${Math.random()}`,
+            name: c.cropName || "—",
+            seller: c.sellerName || "—",
+            sellerType: "Farmer",
+            category: "Crops",
+            quantity: c.weight || "—",
+            price: c.price || 0,
+            status: (c.status || "pending") as ProductItem["status"],
+            image: c.image,
+          });
+        });
       }
 
-      // Dealer listings as products too
-      const dealerListings = await api.getDealerListings();
-      if (dealerListings && dealerListings.length > 0) {
-        const dlProducts = dealerListings.map((d: any) => ({
-          id: d.id || `PROD${Math.random()}`,
-          name: d.title || "—",
-          seller: d.dealerName || "—",
-          sellerType: "Dealer" as const,
-          category: d.category || d.type || "—",
-          quantity: d.unit || "—",
-          price: typeof d.price === "number" ? d.price : 0,
-          status: (d.status || "pending") as ProductItem["status"],
-          image: d.image,
-        }));
-        setProducts(prev => [...prev, ...dlProducts]);
+      if (dealerListingsRes.status === "fulfilled" && dealerListingsRes.value && dealerListingsRes.value.length > 0) {
+        dealerListingsRes.value.forEach((d: any) => {
+          newProducts.push({
+            id: d.id || `PROD${Math.random()}`,
+            name: d.title || "—",
+            seller: d.dealerName || "—",
+            sellerType: "Dealer",
+            category: d.category || d.type || "—",
+            quantity: d.unit || "—",
+            price: typeof d.price === "number" ? d.price : 0,
+            status: (d.status || "pending") as ProductItem["status"],
+            image: d.image,
+          });
+        });
       }
+      if (newProducts.length > 0) setProducts(newProducts);
 
-      // Labour/Machinery bookings as requests
-      const labour = await api.getLabourBookings();
-      const machinery = await api.getMachineryBookings();
-      const expert = await api.getExpertQueries();
+      // Process requests
       const reqItems: RequestItem[] = [];
-
-      if (labour && labour.length > 0) {
-        labour.forEach((l: any, idx: number) => {
+      if (labourRes.status === "fulfilled" && labourRes.value) {
+        labourRes.value.forEach((l: any, idx: number) => {
           reqItems.push({
             id: l.id || `RQ${3000 + idx}`,
             user: l.userName || "—",
@@ -201,8 +220,8 @@ export default function AdminDashboard() {
         });
       }
 
-      if (machinery && machinery.length > 0) {
-        machinery.forEach((m: any, idx: number) => {
+      if (machineryRes.status === "fulfilled" && machineryRes.value) {
+        machineryRes.value.forEach((m: any, idx: number) => {
           reqItems.push({
             id: m.id || `RQ${4000 + idx}`,
             user: m.userName || "—",
@@ -219,8 +238,8 @@ export default function AdminDashboard() {
         });
       }
 
-      if (expert && expert.length > 0) {
-        expert.forEach((e: any, idx: number) => {
+      if (expertRes.status === "fulfilled" && expertRes.value) {
+        expertRes.value.forEach((e: any, idx: number) => {
           reqItems.push({
             id: e.id || `RQ${5000 + idx}`,
             user: e.farmerName || "—",
@@ -236,13 +255,11 @@ export default function AdminDashboard() {
           });
         });
       }
-
       if (reqItems.length > 0) setRequests(reqItems);
 
-      // Notifications as audit logs
-      const notifs = await api.getNotifications();
-      if (notifs && notifs.length > 0) {
-        setAuditLogs(notifs.map((n: any, idx: number) => ({
+      // Process notifications
+      if (notifsRes.status === "fulfilled" && notifsRes.value) {
+        setAuditLogs(notifsRes.value.map((n: any, idx: number) => ({
           id: n.id || `LOG${idx}`,
           adminName: "System",
           action: n.title || "Notification",
@@ -255,6 +272,7 @@ export default function AdminDashboard() {
     } catch (err) {
       console.warn("[Admin] Error loading data:", err);
     } finally {
+      clearTimeout(timer);
       setLoading(false);
     }
   }, [loadAllKccApplications]);
@@ -318,16 +336,7 @@ export default function AdminDashboard() {
         />
 
         <main className="flex-1 p-3 sm:p-6 overflow-y-auto">
-          {loading && activeTab === "dashboard" && (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center space-y-3">
-                <div className="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-gray-400 text-sm">Loading live data from database...</p>
-              </div>
-            </div>
-          )}
-
-          {!loading && activeTab === "dashboard" && (
+          {activeTab === "dashboard" && (
             <DashboardView
               onNavigate={(tab) => setActiveTab(tab as AdminTab)}
               farmers={farmers}

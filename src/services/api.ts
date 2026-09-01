@@ -20,21 +20,26 @@ export const seedMongoDatabase = async () => {
   }
 };
 
-// Generic API caller with try/catch
+// Generic API caller with try/catch & timeout controller
 async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3500);
   try {
     const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         ...(options?.headers || {}),
       },
       ...options,
     });
+    clearTimeout(timeoutId);
     if (!res.ok) {
       throw new Error(`API Error: ${res.statusText}`);
     }
     return await res.json();
   } catch (err: any) {
+    clearTimeout(timeoutId);
     console.warn(`[MongoDB Client API] Fetch failed for ${endpoint}:`, err?.message || String(err));
     return null;
   }
